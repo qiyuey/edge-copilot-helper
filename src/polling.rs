@@ -1,6 +1,9 @@
+#![cfg(not(target_os = "macos"))]
+
 use anyhow::Result;
 use std::{thread, time::Duration};
-use sysinfo::{ProcessExt, System, SystemExt};
+use sysinfo::System;
+
 use crate::common::apply_fix;
 
 #[cfg(target_os = "windows")]
@@ -22,18 +25,18 @@ pub fn run_polling_loop() -> Result<()> {
     println!("🐧/🪟 Polling Mode: Starting Loop...");
     println!("   Monitoring process: {}", PROCESS_NAMES.join(", "));
 
-    let mut sys = System::new_all();
+    let mut sys = System::new();
     let mut was_running = false;
 
     loop {
-        // Refresh processes
-        sys.refresh_processes();
+        sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
 
-        // Check if Edge is running
-        // Note: Edge has multiple processes, as long as one is running we consider it open
-        let is_running = PROCESS_NAMES
-            .iter()
-            .any(|name| sys.processes_by_name(name).next().is_some());
+        // Check if Edge is running (multiple processes, any one means Edge is open)
+        let is_running = PROCESS_NAMES.iter().any(|name| {
+            sys.processes()
+                .values()
+                .any(|p| p.name().to_string_lossy() == *name)
+        });
 
         if was_running && !is_running {
             println!("🛑 Edge exited. Applying fix...");
@@ -43,8 +46,6 @@ pub fn run_polling_loop() -> Result<()> {
         }
 
         was_running = is_running;
-        
-        // Low frequency polling
         thread::sleep(Duration::from_secs(2));
     }
 }

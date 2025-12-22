@@ -2,6 +2,9 @@
 name = "edge-copilot-helper"
 version = "0.1.0"
 edition = "2021"
+description = "Cross-platform utility to bypass Microsoft Edge Copilot region restrictions"
+license = "MIT"
+repository = "https://github.com/qiyuey/edge-copilot-helper"
 
 [dependencies]
 serde_json = "1.0"
@@ -9,7 +12,7 @@ dirs = "5.0"
 anyhow = "1.0"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
-sysinfo = "0.30"
+sysinfo = "0.33"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

@@ -26,7 +26,7 @@ pub fn apply_fix() -> Result<()> {
 
         // 3. Write (only if modified)
         if modified {
-            let new_content = serde_json::to_string(&json)?;
+            let new_content = serde_json::to_string_pretty(&json)?;
             fs::write(&prefs_path, new_content)
                 .with_context(|| format!("Failed to write preferences at {:?}", prefs_path))?;
             println!("✅ Edge Copilot region fix applied at {:?}", prefs_path);
@@ -111,4 +111,101 @@ fn get_prefs_paths() -> Result<Vec<PathBuf>> {
     }
 
     Ok(paths)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_replace_cn_simple_string() {
+        let mut value = json!("CN");
+        assert!(replace_cn_values(&mut value));
+        assert_eq!(value, json!("SG"));
+    }
+
+    #[test]
+    fn test_replace_cn_no_change() {
+        let mut value = json!("US");
+        assert!(!replace_cn_values(&mut value));
+        assert_eq!(value, json!("US"));
+    }
+
+    #[test]
+    fn test_replace_cn_in_object() {
+        let mut value = json!({
+            "region": "CN",
+            "name": "test",
+            "nested": {
+                "country": "CN",
+                "city": "Beijing"
+            }
+        });
+        assert!(replace_cn_values(&mut value));
+        assert_eq!(value, json!({
+            "region": "SG",
+            "name": "test",
+            "nested": {
+                "country": "SG",
+                "city": "Beijing"
+            }
+        }));
+    }
+
+    #[test]
+    fn test_replace_cn_in_array() {
+        let mut value = json!(["CN", "US", "CN", "JP"]);
+        assert!(replace_cn_values(&mut value));
+        assert_eq!(value, json!(["SG", "US", "SG", "JP"]));
+    }
+
+    #[test]
+    fn test_replace_cn_mixed_structure() {
+        let mut value = json!({
+            "regions": ["CN", "US"],
+            "default": "CN",
+            "config": {
+                "locale": "CN",
+                "enabled": true,
+                "count": 42
+            }
+        });
+        assert!(replace_cn_values(&mut value));
+        assert_eq!(value, json!({
+            "regions": ["SG", "US"],
+            "default": "SG",
+            "config": {
+                "locale": "SG",
+                "enabled": true,
+                "count": 42
+            }
+        }));
+    }
+
+    #[test]
+    fn test_replace_cn_no_cn_values() {
+        let mut value = json!({
+            "region": "US",
+            "list": ["JP", "KR"],
+            "nested": {"country": "UK"}
+        });
+        assert!(!replace_cn_values(&mut value));
+    }
+
+    #[test]
+    fn test_replace_cn_partial_match_ignored() {
+        let mut value = json!({
+            "code": "CNN",
+            "name": "CN_test",
+            "prefix": "preCN"
+        });
+        assert!(!replace_cn_values(&mut value));
+        // Values should remain unchanged
+        assert_eq!(value, json!({
+            "code": "CNN",
+            "name": "CN_test",
+            "prefix": "preCN"
+        }));
+    }
 }
