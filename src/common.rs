@@ -1,77 +1,114 @@
 use std::{fs, path::PathBuf};
 use serde_json::Value;
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 
 pub fn apply_fix() -> Result<()> {
-    let prefs_path = get_prefs_path().context("Could not determine preferences path")?;
-    
-    if !prefs_path.exists() {
-        // Only log if we expect it to be there but it's not. 
-        // For a watcher, sometimes the file might not be created yet if Edge was never run.
-        println!("⚠️ Preferences file not found at {:?}", prefs_path);
-        return Ok(());
-    }
+    let prefs_paths = get_prefs_paths()?;
 
-    // 1. Read
-    let content = fs::read_to_string(&prefs_path)?;
-    let mut json: Value = serde_json::from_str(&content).context("Failed to parse Preferences JSON")?;
+    let mut found_existing = false;
+    let mut any_modified = false;
 
-    // 2. Modify
-    // We want to set browser.custom_services.region_search = "SG"
-    let mut modified = false;
-
-    if let Some(browser) = json.get_mut("browser") {
-        if let Some(services) = browser.get_mut("custom_services") {
-            // Check if it's already SG to avoid unnecessary writes
-            if services["region_search"] != "SG" {
-                services["region_search"] = Value::String("SG".to_string());
-                modified = true;
-            }
-        } else {
-            // "custom_services" missing, create it
-            // This is a bit tricky with untyped Value, but we can try to insert if it's an object
-            if let Some(obj) = browser.as_object_mut() {
-                let mut services = serde_json::Map::new();
-                services.insert("region_search".to_string(), Value::String("SG".to_string()));
-                obj.insert("custom_services".to_string(), Value::Object(services));
-                modified = true;
-            }
+    for prefs_path in prefs_paths {
+        if !prefs_path.exists() {
+            continue;
         }
-    } else {
-         // "browser" missing, this is unlikely for a valid Prefs file, but handle gracefully
-         println!("⚠️ 'browser' node missing in Preferences.");
+
+        found_existing = true;
+
+        // 1. Read
+        let content = fs::read_to_string(&prefs_path)
+            .with_context(|| format!("Failed to read preferences at {:?}", prefs_path))?;
+        let mut json: Value = serde_json::from_str(&content)
+            .with_context(|| format!("Failed to parse JSON at {:?}", prefs_path))?;
+
+        // 2. Modify: replace any string value exactly "CN" with "SG"
+        let modified = replace_cn_values(&mut json);
+
+        // 3. Write (only if modified)
+        if modified {
+            let new_content = serde_json::to_string(&json)?;
+            fs::write(&prefs_path, new_content)
+                .with_context(|| format!("Failed to write preferences at {:?}", prefs_path))?;
+            println!("✅ Edge Copilot region fix applied at {:?}", prefs_path);
+            any_modified = true;
+        }
     }
 
-    // 3. Write (only if modified)
-    if modified {
-        // We use pretty print? Original file is usually compact, but jq often prettifies it or vice versa.
-        // Edge handles both. Pretty is safer for debugging.
-        // But for minimal diff, maybe not. However, serde_json::to_string is compact. 
-        // Let's use pretty to be consistent with previous jq behavior if jq was used.
-        // Actually, previous jq command didn't specify compact, so it probably pretty printed.
-        // Let's stick to standard write.
-        let new_content = serde_json::to_string(&json)?;
-        fs::write(&prefs_path, new_content)?;
-        println!("✅ Edge Copilot region fix applied (set to SG).");
-    } else {
-        // println!("ℹ️ Region already set to SG.");
+    if !found_existing {
+        println!("⚠️ Preferences file not found in known locations.");
+    } else if !any_modified {
+        println!("ℹ️ No CN values found to update.");
     }
 
     Ok(())
 }
 
-fn get_prefs_path() -> Option<PathBuf> {
-    let mut path = dirs::home_dir()?;
-
-    #[cfg(target_os = "macos")]
-    path.push("Library/Application Support/Microsoft Edge/Default/Preferences");
-
-    #[cfg(target_os = "linux")]
-    path.push(".config/microsoft-edge/Default/Preferences");
-
-    #[cfg(target_os = "windows")]
-    path.push("AppData/Local/Microsoft/Edge/User Data/Default/Preferences");
-
-    Some(path)
+fn replace_cn_values(value: &mut Value) -> bool {
+    match value {
+        Value::String(s) if s == "CN" => {
+            *s = "SG".to_string();
+            true
+        }
+        Value::Array(arr) => {
+            let mut changed = false;
+            for v in arr.iter_mut() {
+                changed |= replace_cn_values(v);
+            }
+            changed
+        }
+        Value::Object(map) => {
+            let mut changed = false;
+            for v in map.values_mut() {
+                changed |= replace_cn_values(v);
+            }
+            changed
+        }
+        _ => false,
+    }
 }
 
+fn get_prefs_paths() -> Result<Vec<PathBuf>> {
+    let home = dirs::home_dir().context("Could not determine home directory")?;
+    let mut paths = Vec::new();
+
+    #[cfg(target_os = "macos")]
+    {
+        let mac_channels = [
+            "Library/Application Support/Microsoft Edge/Default/Preferences",
+            "Library/Application Support/Microsoft Edge Beta/Default/Preferences",
+            "Library/Application Support/Microsoft Edge Dev/Default/Preferences",
+            "Library/Application Support/Microsoft Edge Canary/Default/Preferences",
+        ];
+        for channel in mac_channels {
+            paths.push(home.join(channel));
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let linux_channels = [
+            ".config/microsoft-edge/Default/Preferences",
+            ".config/microsoft-edge-beta/Default/Preferences",
+            ".config/microsoft-edge-dev/Default/Preferences",
+            ".config/microsoft-edge-canary/Default/Preferences",
+        ];
+        for channel in linux_channels {
+            paths.push(home.join(channel));
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let windows_channels = [
+            "AppData/Local/Microsoft/Edge/User Data/Default/Preferences",
+            "AppData/Local/Microsoft/Edge Beta/User Data/Default/Preferences",
+            "AppData/Local/Microsoft/Edge Dev/User Data/Default/Preferences",
+            "AppData/Local/Microsoft/Edge SxS/User Data/Default/Preferences",
+        ];
+        for channel in windows_channels {
+            paths.push(home.join(channel));
+        }
+    }
+
+    Ok(paths)
+}

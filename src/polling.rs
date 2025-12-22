@@ -1,13 +1,26 @@
 use anyhow::Result;
 use std::{thread, time::Duration};
-use sysinfo::{System, SystemExt, ProcessExt};
+use sysinfo::{ProcessExt, System, SystemExt};
 use crate::common::apply_fix;
 
-const PROCESS_NAME: &str = "msedge";
+#[cfg(target_os = "windows")]
+const PROCESS_NAMES: &[&str] = &["msedge.exe", "msedge"];
+
+#[cfg(target_os = "linux")]
+const PROCESS_NAMES: &[&str] = &[
+    "msedge",
+    "microsoft-edge",
+    "microsoft-edge-stable",
+    "microsoft-edge-beta",
+    "microsoft-edge-dev",
+];
+
+#[cfg(all(not(target_os = "windows"), not(target_os = "linux")))]
+const PROCESS_NAMES: &[&str] = &["msedge"];
 
 pub fn run_polling_loop() -> Result<()> {
     println!("🐧/🪟 Polling Mode: Starting Loop...");
-    println!("   Monitoring process: {}", PROCESS_NAME);
+    println!("   Monitoring process: {}", PROCESS_NAMES.join(", "));
 
     let mut sys = System::new_all();
     let mut was_running = false;
@@ -18,7 +31,9 @@ pub fn run_polling_loop() -> Result<()> {
 
         // Check if Edge is running
         // Note: Edge has multiple processes, as long as one is running we consider it open
-        let is_running = sys.processes_by_name(PROCESS_NAME).next().is_some();
+        let is_running = PROCESS_NAMES
+            .iter()
+            .any(|name| sys.processes_by_name(name).next().is_some());
 
         if was_running && !is_running {
             println!("🛑 Edge exited. Applying fix...");
