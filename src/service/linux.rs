@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::process::Command;
 
-use crate::constants::{paths, APP_LABEL, BINARY_NAME};
+use crate::constants::{APP_LABEL, BINARY_NAME, paths};
 
 pub fn install() -> Result<()> {
     println!("Installing Edge Copilot Helper...");
@@ -15,15 +15,23 @@ pub fn install() -> Result<()> {
 
     // 1. Create directories
     println!("Creating directories...");
-    fs::create_dir_all(&install_dir)
-        .with_context(|| format!("Failed to create install directory: {}", install_dir.display()))?;
+    fs::create_dir_all(&install_dir).with_context(|| {
+        format!(
+            "Failed to create install directory: {}",
+            install_dir.display()
+        )
+    })?;
     fs::create_dir_all(&log_dir)
         .with_context(|| format!("Failed to create log directory: {}", log_dir.display()))?;
 
     // Ensure systemd user directory exists
     if let Some(parent) = unit_path.parent() {
-        fs::create_dir_all(parent)
-            .with_context(|| format!("Failed to create systemd user directory: {}", parent.display()))?;
+        fs::create_dir_all(parent).with_context(|| {
+            format!(
+                "Failed to create systemd user directory: {}",
+                parent.display()
+            )
+        })?;
     }
 
     // 2. Copy binary
@@ -121,7 +129,8 @@ pub fn uninstall() -> Result<()> {
     // 2. Remove unit file
     if unit_path.exists() {
         println!("Removing unit file: {}", unit_path.display());
-        fs::remove_file(&unit_path).with_context(|| format!("Failed to remove {}", unit_path.display()))?;
+        fs::remove_file(&unit_path)
+            .with_context(|| format!("Failed to remove {}", unit_path.display()))?;
     }
 
     // 3. Reload systemd

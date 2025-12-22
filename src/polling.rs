@@ -37,7 +37,7 @@ pub fn run_polling_loop() -> Result<()> {
             let pname = process.name().to_string_lossy();
             PROCESS_NAMES.iter().any(|&n| n == pname)
         });
-        
+
         if was_running && !is_running {
             println!("🛑 Edge exited. Applying fix...");
             if let Err(e) = apply_fix() {

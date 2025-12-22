@@ -2,14 +2,18 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 use std::{fs, path::PathBuf};
 
-fn process_json_file(path: &PathBuf, file_type: &str, modify_fn: impl FnOnce(&mut Value) -> bool) -> Result<bool> {
+fn process_json_file(
+    path: &PathBuf,
+    file_type: &str,
+    modify_fn: impl FnOnce(&mut Value) -> bool,
+) -> Result<bool> {
     if !path.exists() {
         return Ok(false);
     }
 
     let content = fs::read_to_string(path)
         .with_context(|| format!("Failed to read {} at {}", file_type, path.display()))?;
-    
+
     let mut json: Value = serde_json::from_str(&content)
         .with_context(|| format!("Failed to parse JSON at {}", path.display()))?;
 
@@ -19,7 +23,11 @@ fn process_json_file(path: &PathBuf, file_type: &str, modify_fn: impl FnOnce(&mu
         let new_content = serde_json::to_string_pretty(&json)?;
         fs::write(path, new_content)
             .with_context(|| format!("Failed to write {} at {}", file_type, path.display()))?;
-        println!("✅ Edge Copilot region fix applied to {} at {}", file_type, path.display());
+        println!(
+            "✅ Edge Copilot region fix applied to {} at {}",
+            file_type,
+            path.display()
+        );
     }
 
     Ok(modified)
@@ -54,7 +62,9 @@ pub fn apply_fix() -> Result<()> {
     if !found_existing {
         println!("⚠️ Edge configuration files not found in known locations.");
     } else if !any_modified {
-        println!("ℹ️ No changes needed: variations_country already US and chat_ip_eligibility_status already set.");
+        println!(
+            "ℹ️ No changes needed: variations_country already US and chat_ip_eligibility_status already set."
+        );
     }
 
     Ok(())
@@ -68,7 +78,10 @@ fn patch_variations_country(json: &mut Value) -> bool {
                 return false;
             }
         }
-        obj.insert("variations_country".to_string(), Value::String("US".to_string()));
+        obj.insert(
+            "variations_country".to_string(),
+            Value::String("US".to_string()),
+        );
         return true;
     }
     false
@@ -85,7 +98,8 @@ fn set_chat_ip_eligibility_status(json: &mut Value) -> bool {
                 if let Some(status) = browser_obj.get("chat_ip_eligibility_status") {
                     // 如果已经是 true，不需要修改
                     if status.as_bool() != Some(true) {
-                        browser_obj.insert("chat_ip_eligibility_status".to_string(), Value::Bool(true));
+                        browser_obj
+                            .insert("chat_ip_eligibility_status".to_string(), Value::Bool(true));
                         return true;
                     }
                     return false;
@@ -121,26 +135,28 @@ fn get_all_paths() -> Result<(Vec<PathBuf>, Vec<PathBuf>)> {
             "Library/Application Support/Microsoft Edge Dev",
             "Library/Application Support/Microsoft Edge Canary",
         ];
-        
+
         for user_data_path in mac_user_data_paths {
             let user_data = home.join(user_data_path);
             if !user_data.exists() {
                 continue;
             }
-            
+
             // Local State 文件
             let local_state = user_data.join("Local State");
             if local_state.exists() {
                 local_state_paths.push(local_state);
             }
-            
+
             // 遍历所有 Profile 目录
             if let Ok(entries) = fs::read_dir(&user_data) {
                 for entry in entries.flatten() {
                     let path = entry.path();
                     if path.is_dir() {
                         let dir_name = path.file_name().and_then(|n| n.to_str());
-                        if dir_name == Some("Default") || dir_name.map(|n| n.starts_with("Profile ")).unwrap_or(false) {
+                        if dir_name == Some("Default")
+                            || dir_name.map(|n| n.starts_with("Profile ")).unwrap_or(false)
+                        {
                             let prefs = path.join("Preferences");
                             if prefs.exists() {
                                 prefs_paths.push(prefs);
@@ -160,26 +176,28 @@ fn get_all_paths() -> Result<(Vec<PathBuf>, Vec<PathBuf>)> {
             ".config/microsoft-edge-dev",
             ".config/microsoft-edge-canary",
         ];
-        
+
         for user_data_path in linux_user_data_paths {
             let user_data = home.join(user_data_path);
             if !user_data.exists() {
                 continue;
             }
-            
+
             // Local State 文件
             let local_state = user_data.join("Local State");
             if local_state.exists() {
                 local_state_paths.push(local_state);
             }
-            
+
             // 遍历所有 Profile 目录
             if let Ok(entries) = fs::read_dir(&user_data) {
                 for entry in entries.flatten() {
                     let path = entry.path();
                     if path.is_dir() {
                         let dir_name = path.file_name().and_then(|n| n.to_str());
-                        if dir_name == Some("Default") || dir_name.map(|n| n.starts_with("Profile ")).unwrap_or(false) {
+                        if dir_name == Some("Default")
+                            || dir_name.map(|n| n.starts_with("Profile ")).unwrap_or(false)
+                        {
                             let prefs = path.join("Preferences");
                             if prefs.exists() {
                                 prefs_paths.push(prefs);
@@ -199,26 +217,28 @@ fn get_all_paths() -> Result<(Vec<PathBuf>, Vec<PathBuf>)> {
             "AppData/Local/Microsoft/Edge Dev/User Data",
             "AppData/Local/Microsoft/Edge SxS/User Data",
         ];
-        
+
         for user_data_path in windows_user_data_paths {
             let user_data = home.join(user_data_path);
             if !user_data.exists() {
                 continue;
             }
-            
+
             // Local State 文件
             let local_state = user_data.join("Local State");
             if local_state.exists() {
                 local_state_paths.push(local_state);
             }
-            
+
             // 遍历所有 Profile 目录的 Preferences
             if let Ok(entries) = fs::read_dir(&user_data) {
                 for entry in entries.flatten() {
                     let path = entry.path();
                     if path.is_dir() {
                         let dir_name = path.file_name().and_then(|n| n.to_str());
-                        if dir_name == Some("Default") || dir_name.map(|n| n.starts_with("Profile ")).unwrap_or(false) {
+                        if dir_name == Some("Default")
+                            || dir_name.map(|n| n.starts_with("Profile ")).unwrap_or(false)
+                        {
                             let prefs = path.join("Preferences");
                             if prefs.exists() {
                                 prefs_paths.push(prefs);

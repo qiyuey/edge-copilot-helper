@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::process::Command;
 
-use crate::constants::{paths, APP_LABEL};
+use crate::constants::{APP_LABEL, paths};
 
 pub fn install() -> Result<()> {
     println!("Installing Edge Copilot Helper...");
@@ -15,15 +15,23 @@ pub fn install() -> Result<()> {
 
     // 1. Create directories
     println!("Creating directories...");
-    fs::create_dir_all(&install_dir)
-        .with_context(|| format!("Failed to create install directory: {}", install_dir.display()))?;
+    fs::create_dir_all(&install_dir).with_context(|| {
+        format!(
+            "Failed to create install directory: {}",
+            install_dir.display()
+        )
+    })?;
     fs::create_dir_all(&log_dir)
         .with_context(|| format!("Failed to create log directory: {}", log_dir.display()))?;
 
     // Ensure LaunchAgents directory exists
     if let Some(parent) = plist_path.parent() {
-        fs::create_dir_all(parent)
-            .with_context(|| format!("Failed to create LaunchAgents directory: {}", parent.display()))?;
+        fs::create_dir_all(parent).with_context(|| {
+            format!(
+                "Failed to create LaunchAgents directory: {}",
+                parent.display()
+            )
+        })?;
     }
 
     // 2. Copy binary
@@ -113,7 +121,8 @@ pub fn uninstall() -> Result<()> {
     // 4. Remove logs
     if log_dir.exists() {
         println!("Removing logs: {}", log_dir.display());
-        fs::remove_dir_all(&log_dir).with_context(|| format!("Failed to remove {}", log_dir.display()))?;
+        fs::remove_dir_all(&log_dir)
+            .with_context(|| format!("Failed to remove {}", log_dir.display()))?;
     }
 
     println!();

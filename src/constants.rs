@@ -34,7 +34,7 @@ pub mod paths {
 
 #[cfg(target_os = "windows")]
 pub mod paths {
-    use super::{PathBuf, APP_LABEL, BINARY_NAME};
+    use super::{APP_LABEL, BINARY_NAME, PathBuf};
 
     pub fn install_dir() -> PathBuf {
         dirs::data_local_dir()

@@ -17,8 +17,12 @@ pub fn install() -> Result<()> {
 
     // 1. Create directories
     println!("Creating directories...");
-    fs::create_dir_all(&install_dir)
-        .with_context(|| format!("Failed to create install directory: {}", install_dir.display()))?;
+    fs::create_dir_all(&install_dir).with_context(|| {
+        format!(
+            "Failed to create install directory: {}",
+            install_dir.display()
+        )
+    })?;
     fs::create_dir_all(&log_dir)
         .with_context(|| format!("Failed to create log directory: {}", log_dir.display()))?;
 
@@ -32,7 +36,7 @@ pub fn install() -> Result<()> {
     let bin_path = binary_path.to_str().unwrap_or("");
     // Format: "C:\path\to\exe" run
     let reg_value = format!("\"{}\" run", bin_path);
-    
+
     let status = Command::new("reg")
         .args([
             "add",
