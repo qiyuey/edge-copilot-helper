@@ -30,8 +30,7 @@ mod inner {
 
                     if let Some(obj) = app_obj {
                         // Safety: NSWorkspaceApplicationKey guarantees the value is NSRunningApplication
-                        let app: Retained<NSRunningApplication> =
-                            Retained::cast_unchecked(obj);
+                        let app: Retained<NSRunningApplication> = Retained::cast_unchecked(obj);
 
                         if let Some(bundle_id) = app.bundleIdentifier() {
                             let bid = bundle_id.to_string();

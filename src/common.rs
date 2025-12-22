@@ -1,6 +1,6 @@
-use std::{fs, path::PathBuf};
-use serde_json::Value;
 use anyhow::{Context, Result};
+use serde_json::Value;
+use std::{fs, path::PathBuf};
 
 pub fn apply_fix() -> Result<()> {
     let prefs_paths = get_prefs_paths()?;
@@ -143,14 +143,17 @@ mod tests {
             }
         });
         assert!(replace_cn_values(&mut value));
-        assert_eq!(value, json!({
-            "region": "SG",
-            "name": "test",
-            "nested": {
-                "country": "SG",
-                "city": "Beijing"
-            }
-        }));
+        assert_eq!(
+            value,
+            json!({
+                "region": "SG",
+                "name": "test",
+                "nested": {
+                    "country": "SG",
+                    "city": "Beijing"
+                }
+            })
+        );
     }
 
     #[test]
@@ -172,15 +175,18 @@ mod tests {
             }
         });
         assert!(replace_cn_values(&mut value));
-        assert_eq!(value, json!({
-            "regions": ["SG", "US"],
-            "default": "SG",
-            "config": {
-                "locale": "SG",
-                "enabled": true,
-                "count": 42
-            }
-        }));
+        assert_eq!(
+            value,
+            json!({
+                "regions": ["SG", "US"],
+                "default": "SG",
+                "config": {
+                    "locale": "SG",
+                    "enabled": true,
+                    "count": 42
+                }
+            })
+        );
     }
 
     #[test]
@@ -202,10 +208,13 @@ mod tests {
         });
         assert!(!replace_cn_values(&mut value));
         // Values should remain unchanged
-        assert_eq!(value, json!({
-            "code": "CNN",
-            "name": "CN_test",
-            "prefix": "preCN"
-        }));
+        assert_eq!(
+            value,
+            json!({
+                "code": "CNN",
+                "name": "CN_test",
+                "prefix": "preCN"
+            })
+        );
     }
 }

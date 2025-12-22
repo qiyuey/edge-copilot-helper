@@ -43,7 +43,11 @@ pub fn install() -> Result<()> {
     // 3. Unload existing service if present
     println!("Checking for existing service...");
     let _ = Command::new("launchctl")
-        .args(["bootout", &format!("gui/{}", get_uid()), plist_path.to_str().unwrap_or("")])
+        .args([
+            "bootout",
+            &format!("gui/{}", get_uid()),
+            plist_path.to_str().unwrap_or(""),
+        ])
         .output();
 
     // 4. Generate and write plist
@@ -83,13 +87,18 @@ pub fn uninstall() -> Result<()> {
     // 1. Unload service
     println!("Stopping service...");
     let _ = Command::new("launchctl")
-        .args(["bootout", &format!("gui/{}", get_uid()), plist_path.to_str().unwrap_or("")])
+        .args([
+            "bootout",
+            &format!("gui/{}", get_uid()),
+            plist_path.to_str().unwrap_or(""),
+        ])
         .output();
 
     // 2. Remove plist
     if plist_path.exists() {
         println!("Removing plist: {:?}", plist_path);
-        fs::remove_file(&plist_path).with_context(|| format!("Failed to remove {:?}", plist_path))?;
+        fs::remove_file(&plist_path)
+            .with_context(|| format!("Failed to remove {:?}", plist_path))?;
     }
 
     // 3. Remove install directory

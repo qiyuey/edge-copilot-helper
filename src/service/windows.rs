@@ -47,7 +47,9 @@ pub fn install() -> Result<()> {
         .context("Failed to execute sc create")?;
 
     if !status.success() {
-        anyhow::bail!("Failed to create Windows service. Make sure you're running as Administrator.");
+        anyhow::bail!(
+            "Failed to create Windows service. Make sure you're running as Administrator."
+        );
     }
 
     // 5. Configure failure recovery (restart on failure)
@@ -69,7 +71,9 @@ pub fn install() -> Result<()> {
         .context("Failed to execute sc start")?;
 
     if !status.success() {
-        println!("Warning: Service created but failed to start. You may need to start it manually.");
+        println!(
+            "Warning: Service created but failed to start. You may need to start it manually."
+        );
     }
 
     println!();
