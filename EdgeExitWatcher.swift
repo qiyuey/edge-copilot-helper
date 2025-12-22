@@ -7,7 +7,7 @@ class AppObserver: NSObject {
     init(scriptPath: String) {
         self.scriptPath = scriptPath
         super.init()
-        // Register for application termination notifications
+        // Watch for app termination
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
             selector: #selector(appDidTerminate(_:)),
@@ -25,8 +25,7 @@ class AppObserver: NSObject {
         let name = app.localizedName ?? "Unknown"
         let bundleId = app.bundleIdentifier ?? "Unknown"
 
-        // Check if the terminated app is Microsoft Edge
-        // Common Bundle IDs: com.microsoft.edgemac, com.microsoft.edgemac.Canary, com.microsoft.edgemac.Beta, com.microsoft.edgemac.Dev
+        // Check for Edge
         if bundleId.contains("com.microsoft.edgemac") || name == "Microsoft Edge" {
             print("🛑 Detected termination of: \(name) (\(bundleId))")
             print("🚀 Triggering fix script...")
@@ -38,16 +37,12 @@ class AppObserver: NSObject {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: scriptPath)
         
-        // Since this runs in background, we might want to log output
-        // For now, we inherit stdout/stderr so it goes to the system log/console if viewing
+        // Inherit IO
         process.standardOutput = FileHandle.standardOutput
         process.standardError = FileHandle.standardError
 
         do {
             try process.run()
-            // We don't wait until exit to avoid blocking the main thread for too long, 
-            // but since we are just a watcher, blocking is fine as long as we process the next event.
-            // Actually, waiting is better to ensure we don't spawn multiple overlapping instances if user rapidly opens/closes.
             process.waitUntilExit()
             print("✅ Script finished with exit code: \(process.terminationStatus)")
         } catch {
