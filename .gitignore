@@ -2,4 +2,4 @@ EdgeExitWatcher
 .DS_Store
 *.log
 .cursor/
-
+.target/

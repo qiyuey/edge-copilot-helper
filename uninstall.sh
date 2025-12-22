@@ -8,7 +8,7 @@ PLIST_DEST="$HOME/Library/LaunchAgents/$PLIST_NAME"
 INSTALL_DIR="$HOME/Library/Application Support/$APP_LABEL"
 LOG_DIR="$HOME/Library/Logs/$APP_LABEL"
 
-echo "🗑️  Uninstalling Edge Copilot Fixer Watcher..."
+echo "🗑️  Uninstalling Edge Copilot Helper..."
 
 # 1. Unload and remove Launch Agent
 if launchctl list | grep -q "$APP_LABEL"; then

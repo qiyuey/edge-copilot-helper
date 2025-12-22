@@ -1,51 +1,44 @@
-# Edge Copilot Helper
+# Edge Copilot Helper (Rust Version)
 
-这是一个 macOS 辅助工具，用于在 Microsoft Edge 退出时自动修正其配置文件，确保 Edge Copilot 功能（如地区限制）可用。
+这是一个跨平台的辅助工具，用于在 Microsoft Edge 退出时自动修正其配置文件，确保 Edge Copilot 功能（如地区限制）可用。
 
-## 功能
+本项目已重构为 **Rust** 实现，支持 macOS（原生事件监听）、Windows 和 Linux（轮询监控）。
 
-*   **自动监控**：后台静默运行，监听 Microsoft Edge 的退出事件。
-*   **即时修复**：一旦检测到 Edge 退出，立即执行修复脚本。
-*   **地区修正**：将 `Preferences` 文件中的 `browser.custom_services.region_search` 强制设置为 `SG` (新加坡)，以绕过地区限制。
+## 核心特性
 
-## 依赖
-
-*   **macOS**
-*   **Xcode Command Line Tools** (用于编译 Swift 监控程序)
-    *   安装命令: `xcode-select --install`
-*   **jq** (用于解析和修改 JSON 配置文件)
-    *   安装命令: `brew install jq`
-
-## 安装
-
-1.  克隆或下载本项目。
-2.  在终端中进入项目目录。
-3.  运行安装脚本：
-
-```bash
-./install.sh
-```
-
-脚本将自动执行以下操作：
-*   编译 Swift 监控程序。
-*   安装程序和脚本到 `~/Library/Application Support/top.qiyuey.edge-copilot-helper/`。
-*   配置并启动 Launch Agent (`top.qiyuey.edge-copilot-helper`) 实现开机自启。
+*   **跨平台核心**: 统一的 Rust 逻辑处理 JSON 修改。
+*   **macOS 原生体验**: 使用 `objc2` 调用系统 API 监听应用退出，零 CPU 占用。
+*   **Windows/Linux 支持**: 使用 `sysinfo` 低频轮询监控进程状态。
+*   **单一二进制**: 编译后仅生成一个可执行文件，无需依赖 Python、jq 或 Shell 环境。
 
 ## 目录结构
 
-*   **源码**:
-    *   `EdgeExitWatcher.swift`: 监控程序源码。
-    *   `fix-edge-copilot.sh`: 修复脚本源码。
-    *   `install.sh`: 一键安装脚本。
-    *   `uninstall.sh`: 一键卸载脚本。
-*   **安装位置**: `~/Library/Application Support/top.qiyuey.edge-copilot-helper/`
-*   **日志位置**: `~/Library/Logs/top.qiyuey.edge-copilot-helper/`
-    *   `service.log`: 标准输出日志。
-    *   `service.err`: 错误日志。
+*   `src/`: Rust 源代码
+    *   `main.rs`: 入口点
+    *   `macos.rs`: macOS 事件监听实现
+    *   `polling.rs`: Windows/Linux 轮询实现
+    *   `common.rs`: 通用 JSON 处理逻辑
+*   `install.sh`: macOS 一键编译安装脚本
+*   `uninstall.sh`: macOS 一键卸载脚本
+*   `legacy/`: 旧版 Swift/Shell 实现归档
+
+## macOS 安装
+
+1.  确保已安装 Rust 工具链:
+    ```bash
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+    ```
+2.  运行安装脚本:
+    ```bash
+    ./install.sh
+    ```
+
+脚本将自动执行以下操作：
+*   使用 `cargo build --release` 编译项目。
+*   将二进制文件安装到 `~/Library/Application Support/top.qiyuey.edge-copilot-helper/`。
+*   配置并启动 Launch Agent (`top.qiyuey.edge-copilot-helper`)。
 
 ## 查看状态
-
-安装完成后，可以通过查看日志确认服务运行状态：
 
 ```bash
 tail -f ~/Library/Logs/top.qiyuey.edge-copilot-helper/service.log
@@ -53,9 +46,14 @@ tail -f ~/Library/Logs/top.qiyuey.edge-copilot-helper/service.log
 
 ## 卸载
 
-若要移除服务，请运行以下命令：
-
 ```bash
 ./uninstall.sh
 ```
 
+## Windows / Linux 使用
+
+目前提供的脚本仅针对 macOS。在 Windows 或 Linux 上使用：
+
+1.  编译项目: `cargo build --release`
+2.  运行生成的二进制文件: `./target/release/edge-copilot-helper`
+3.  建议配合 Systemd (Linux) 或 任务计划程序 (Windows) 设置开机自启。
