@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::process::Command;
 
-use crate::constants::{APP_LABEL, BINARY_NAME, paths};
+use crate::constants::{APP_LABEL, paths};
 
 pub fn install() -> Result<()> {
     println!("Installing Edge Copilot Helper...");

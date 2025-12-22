@@ -23,7 +23,7 @@ const PROCESS_NAMES: &[&str] = &["msedge"];
 
 pub fn run_polling_loop() -> Result<()> {
     println!("🐧/🪟 Polling Mode: Starting Loop...");
-    let process_list = PROCESS_NAMES.iter().copied().collect::<Vec<_>>().join(", ");
+    let process_list = PROCESS_NAMES.join(", ");
     println!("   Monitoring process: {process_list}");
 
     let mut sys = System::new();

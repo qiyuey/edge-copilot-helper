@@ -73,10 +73,10 @@ pub fn apply_fix() -> Result<()> {
 /// 修改 Local State 中的 variations_country 字段为 "US"
 fn patch_variations_country(json: &mut Value) -> bool {
     if let Some(obj) = json.as_object_mut() {
-        if let Some(variations_country) = obj.get("variations_country") {
-            if variations_country.as_str() == Some("US") {
-                return false;
-            }
+        if let Some(variations_country) = obj.get("variations_country")
+            && variations_country.as_str() == Some("US")
+        {
+            return false;
         }
         obj.insert(
             "variations_country".to_string(),
