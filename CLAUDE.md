@@ -21,16 +21,20 @@ cargo check
 cargo clippy
 ```
 
-## macOS Installation/Uninstallation
+## Service Management
 
 ```bash
-# Install as Launch Agent (builds and configures auto-start)
-./install.sh
+# Install as system service (macOS: LaunchAgent, Windows: SCM, Linux: systemd)
+./edge-copilot-helper install
 
-# Uninstall Launch Agent and remove all files
-./uninstall.sh
+# Uninstall service and remove all files
+./edge-copilot-helper uninstall
 
-# View service logs
+# Run directly (foreground)
+./edge-copilot-helper run
+./edge-copilot-helper        # 'run' is default
+
+# View service logs (macOS)
 tail -f ~/Library/Logs/top.qiyuey.edge-copilot-helper/service.log
 ```
 
