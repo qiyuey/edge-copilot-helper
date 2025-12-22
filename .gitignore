@@ -1,0 +1,5 @@
+EdgeExitWatcher
+.DS_Store
+*.log
+.cursor/
+
