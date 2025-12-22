@@ -1,59 +1,92 @@
-# Edge Copilot Helper (Rust Version)
+# Edge Copilot Helper
 
-这是一个跨平台的辅助工具，用于在 Microsoft Edge 退出时自动修正其配置文件，确保 Edge Copilot 功能（如地区限制）可用。
+跨平台工具，用于在 Microsoft Edge 退出时自动修正配置文件，绕过 Copilot 地区限制。
 
-本项目已重构为 **Rust** 实现，支持 macOS（原生事件监听）、Windows 和 Linux（轮询监控）。
+## 功能特性
 
-## 核心特性
+- **跨平台支持**: macOS (ARM64)、Windows (x64)、Linux (x64)
+- **macOS 原生监听**: 使用 NSWorkspace API 监听应用退出事件，零 CPU 占用
+- **Windows/Linux 轮询**: 使用 sysinfo 低频轮询监控进程状态
+- **系统服务**: 支持安装为系统服务，开机自启
 
-*   **跨平台核心**: 统一的 Rust 逻辑处理 JSON 修改。
-*   **macOS 原生体验**: 使用 `objc2` 调用系统 API 监听应用退出，零 CPU 占用。
-*   **Windows/Linux 支持**: 使用 `sysinfo` 低频轮询监控进程状态。
-*   **单一二进制**: 编译后仅生成一个可执行文件，无需依赖 Python、jq 或 Shell 环境。
+## 安装
 
-## 目录结构
+### 从 Release 下载
 
-*   `src/`: Rust 源代码
-    *   `main.rs`: 入口点
-    *   `macos.rs`: macOS 事件监听实现
-    *   `polling.rs`: Windows/Linux 轮询实现
-    *   `common.rs`: 通用 JSON 处理逻辑
-*   `install.sh`: macOS 一键编译安装脚本
-*   `uninstall.sh`: macOS 一键卸载脚本
-*   `legacy/`: 旧版 Swift/Shell 实现归档
+前往 [Releases](https://github.com/qiyuey/edge-copilot-helper/releases) 页面下载对应平台的二进制文件。
 
-## macOS 安装
-
-1.  确保已安装 Rust 工具链:
-    ```bash
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-    ```
-2.  运行安装脚本:
-    ```bash
-    ./install.sh
-    ```
-
-脚本将自动执行以下操作：
-*   使用 `cargo build --release` 编译项目。
-*   将二进制文件安装到 `~/Library/Application Support/top.qiyuey.edge-copilot-helper/`。
-*   配置并启动 Launch Agent (`top.qiyuey.edge-copilot-helper`)。
-
-## 查看状态
+### 从源码编译
 
 ```bash
+# 需要 Rust 工具链
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# 编译
+cargo build --release
+
+# 二进制文件位于
+./target/release/edge-copilot-helper
+```
+
+## 使用方法
+
+### 直接运行
+
+```bash
+# 前台运行（默认）
+./edge-copilot-helper run
+./edge-copilot-helper        # run 是默认命令
+```
+
+### 安装为系统服务
+
+```bash
+# 安装服务（macOS: LaunchAgent, Windows: SCM, Linux: systemd）
+./edge-copilot-helper install
+
+# 卸载服务
+./edge-copilot-helper uninstall
+```
+
+### 查看日志
+
+```bash
+# macOS
 tail -f ~/Library/Logs/top.qiyuey.edge-copilot-helper/service.log
+
+# Linux
+journalctl --user -u edge-copilot-helper -f
+
+# Windows
+# 查看 %LOCALAPPDATA%\EdgeCopilotHelper\logs\
 ```
 
-## 卸载
+## 工作原理
 
-```bash
-./uninstall.sh
+当 Microsoft Edge 退出时，程序会：
+
+1. 检测 Edge 进程退出事件
+2. 读取 Edge 配置文件（Preferences）
+3. 将所有值为 "CN" 的字符串替换为 "SG"
+4. 保存修改后的配置
+
+这使得 Edge Copilot 功能可以在受地区限制的区域正常使用。
+
+## 项目结构
+
+```
+src/
+├── main.rs          # 入口点，CLI 命令处理
+├── common.rs        # 通用 JSON 处理逻辑
+├── macos.rs         # macOS 事件监听实现
+├── polling.rs       # Windows/Linux 轮询实现
+├── constants.rs     # 平台相关常量和路径
+└── service/         # 服务安装/卸载逻辑
+    ├── macos.rs     # LaunchAgent
+    ├── windows.rs   # Windows SCM
+    └── linux.rs     # systemd
 ```
 
-## Windows / Linux 使用
+## License
 
-目前提供的脚本仅针对 macOS。在 Windows 或 Linux 上使用：
-
-1.  编译项目: `cargo build --release`
-2.  运行生成的二进制文件: `./target/release/edge-copilot-helper`
-3.  建议配合 Systemd (Linux) 或 任务计划程序 (Windows) 设置开机自启。
+MIT
