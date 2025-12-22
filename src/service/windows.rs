@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::process::Command;
 
-use crate::constants::{paths, APP_LABEL, BINARY_NAME};
+use crate::constants::paths;
 
 const SERVICE_NAME: &str = "EdgeCopilotHelper";
 const DISPLAY_NAME: &str = "Edge Copilot Helper";
