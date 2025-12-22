@@ -19,6 +19,12 @@ cargo check
 
 # Run clippy lints
 cargo clippy
+
+# Format code
+cargo fmt
+
+# Run tests
+cargo test
 ```
 
 ## Service Management
@@ -60,3 +66,18 @@ The project uses `#[cfg(target_os = "...")]` extensively:
 1. Locates Edge preferences files (handles multiple Edge channels: Stable, Beta, Dev, Canary)
 2. Recursively traverses JSON to find all string values equal to "CN"
 3. Replaces them with "SG" and writes back only if modified
+
+### Platform Constants (`constants.rs`)
+
+Defines platform-specific paths via conditional compilation (`#[cfg(target_os = "...")]`):
+- `paths::install_dir()` - Where binary is installed
+- `paths::log_dir()` - Where logs are stored
+- `paths::binary_path()` - Full path to installed binary
+- Platform-specific: `plist_path()` (macOS), `unit_path()` (Linux)
+
+### Service Module (`service/`)
+
+Each platform has its own service installer:
+- `macos.rs` - LaunchAgent plist generation and launchctl commands
+- `windows.rs` - Windows Service Control Manager (sc.exe)
+- `linux.rs` - systemd user service unit file
