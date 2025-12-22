@@ -66,11 +66,28 @@ journalctl --user -u edge-copilot-helper -f
 当 Microsoft Edge 退出时，程序会：
 
 1. 检测 Edge 进程退出事件
-2. 读取 Edge 配置文件（Preferences）
+2. 读取 Edge 配置文件（Windows: Local State, macOS/Linux: Preferences）
 3. 将所有值为 "CN" 的字符串替换为 "SG"
 4. 保存修改后的配置
 
 这使得 Edge Copilot 功能可以在受地区限制的区域正常使用。
+
+## Windows 注意事项
+
+**重要**: 在 Windows 上，为了确保修复生效，您需要：
+
+1. **关闭 Edge 后台运行**：
+   - 打开 Edge 设置 → 系统 → 关闭 "Microsoft Edge 关闭后继续运行后台应用"
+   - 或者手动关闭所有 Edge 窗口
+
+2. **手动终止 msedge 进程**（如果修复未生效）：
+   ```powershell
+   # 使用任务管理器结束所有 msedge.exe 进程
+   # 或使用命令行：
+   taskkill /IM msedge.exe /F /T
+   ```
+
+如果 Edge 后台进程仍在运行，配置文件可能被锁定，导致修复无法应用。
 
 ## 项目结构
 

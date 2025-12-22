@@ -16,20 +16,20 @@ pub fn install() -> Result<()> {
     // 1. Create directories
     println!("Creating directories...");
     fs::create_dir_all(&install_dir)
-        .with_context(|| format!("Failed to create install directory: {:?}", install_dir))?;
+        .with_context(|| format!("Failed to create install directory: {}", install_dir.display()))?;
     fs::create_dir_all(&log_dir)
-        .with_context(|| format!("Failed to create log directory: {:?}", log_dir))?;
+        .with_context(|| format!("Failed to create log directory: {}", log_dir.display()))?;
 
     // Ensure systemd user directory exists
     if let Some(parent) = unit_path.parent() {
         fs::create_dir_all(parent)
-            .with_context(|| format!("Failed to create systemd user directory: {:?}", parent))?;
+            .with_context(|| format!("Failed to create systemd user directory: {}", parent.display()))?;
     }
 
     // 2. Copy binary
     println!("Installing binary...");
     fs::copy(&current_exe, &binary_path)
-        .with_context(|| format!("Failed to copy binary to {:?}", binary_path))?;
+        .with_context(|| format!("Failed to copy binary to {}", binary_path.display()))?;
 
     // Make executable
     #[cfg(unix)]
@@ -53,7 +53,7 @@ pub fn install() -> Result<()> {
     println!("Creating systemd unit file...");
     let unit_content = generate_unit_file(&binary_path);
     fs::write(&unit_path, unit_content)
-        .with_context(|| format!("Failed to write unit file to {:?}", unit_path))?;
+        .with_context(|| format!("Failed to write unit file to {}", unit_path.display()))?;
 
     // 5. Reload systemd
     println!("Reloading systemd...");
@@ -89,14 +89,14 @@ pub fn install() -> Result<()> {
 
     println!();
     println!("Service installed and started successfully!");
-    println!("  Binary: {:?}", binary_path);
-    println!("  Unit:   {:?}", unit_path);
+    println!("  Binary: {}", binary_path.display());
+    println!("  Unit:   {}", unit_path.display());
     println!();
     println!("Manage with:");
-    println!("  systemctl --user status {}", APP_LABEL);
-    println!("  systemctl --user stop {}", APP_LABEL);
-    println!("  systemctl --user start {}", APP_LABEL);
-    println!("  journalctl --user -u {} -f", APP_LABEL);
+    println!("  systemctl --user status {APP_LABEL}");
+    println!("  systemctl --user stop {APP_LABEL}");
+    println!("  systemctl --user start {APP_LABEL}");
+    println!("  journalctl --user -u {APP_LABEL} -f");
 
     Ok(())
 }
@@ -120,8 +120,8 @@ pub fn uninstall() -> Result<()> {
 
     // 2. Remove unit file
     if unit_path.exists() {
-        println!("Removing unit file: {:?}", unit_path);
-        fs::remove_file(&unit_path).with_context(|| format!("Failed to remove {:?}", unit_path))?;
+        println!("Removing unit file: {}", unit_path.display());
+        fs::remove_file(&unit_path).with_context(|| format!("Failed to remove {}", unit_path.display()))?;
     }
 
     // 3. Reload systemd
@@ -131,9 +131,9 @@ pub fn uninstall() -> Result<()> {
 
     // 4. Remove install directory (includes binary and logs)
     if install_dir.exists() {
-        println!("Removing files: {:?}", install_dir);
+        println!("Removing files: {}", install_dir.display());
         fs::remove_dir_all(&install_dir)
-            .with_context(|| format!("Failed to remove {:?}", install_dir))?;
+            .with_context(|| format!("Failed to remove {}", install_dir.display()))?;
     }
 
     println!();

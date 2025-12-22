@@ -4,8 +4,8 @@ use std::process::Command;
 
 use crate::constants::paths;
 
-const SERVICE_NAME: &str = "EdgeCopilotHelper";
-const DISPLAY_NAME: &str = "Edge Copilot Helper";
+const REG_KEY_NAME: &str = "EdgeCopilotHelper";
+const REG_PATH: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
 
 pub fn install() -> Result<()> {
     println!("Installing Edge Copilot Helper...");
@@ -18,73 +18,47 @@ pub fn install() -> Result<()> {
     // 1. Create directories
     println!("Creating directories...");
     fs::create_dir_all(&install_dir)
-        .with_context(|| format!("Failed to create install directory: {:?}", install_dir))?;
+        .with_context(|| format!("Failed to create install directory: {}", install_dir.display()))?;
     fs::create_dir_all(&log_dir)
-        .with_context(|| format!("Failed to create log directory: {:?}", log_dir))?;
+        .with_context(|| format!("Failed to create log directory: {}", log_dir.display()))?;
 
     // 2. Copy binary
     println!("Installing binary...");
     fs::copy(&current_exe, &binary_path)
-        .with_context(|| format!("Failed to copy binary to {:?}", binary_path))?;
+        .with_context(|| format!("Failed to copy binary to {}", binary_path.display()))?;
 
-    // 3. Remove existing service if present
-    println!("Checking for existing service...");
-    let _ = Command::new("sc").args(["stop", SERVICE_NAME]).output();
-    let _ = Command::new("sc").args(["delete", SERVICE_NAME]).output();
-
-    // 4. Create service
-    println!("Creating Windows service...");
-    let bin_path = format!("\"{}\" run", binary_path.to_str().unwrap_or(""));
-    let status = Command::new("sc")
+    // 3. Add to startup registry (HKCU\Run)
+    println!("Adding to startup registry...");
+    let bin_path = binary_path.to_str().unwrap_or("");
+    // Format: "C:\path\to\exe" run
+    let reg_value = format!("\"{}\" run", bin_path);
+    
+    let status = Command::new("reg")
         .args([
-            "create",
-            SERVICE_NAME,
-            &format!("binPath={}", bin_path),
-            "start=auto",
-            &format!("DisplayName={}", DISPLAY_NAME),
+            "add",
+            REG_PATH,
+            "/v",
+            REG_KEY_NAME,
+            "/t",
+            "REG_SZ",
+            "/d",
+            &reg_value,
+            "/f",
         ])
         .status()
-        .context("Failed to execute sc create")?;
+        .context("Failed to execute reg add")?;
 
     if !status.success() {
-        anyhow::bail!(
-            "Failed to create Windows service. Make sure you're running as Administrator."
-        );
-    }
-
-    // 5. Configure failure recovery (restart on failure)
-    println!("Configuring failure recovery...");
-    let _ = Command::new("sc")
-        .args([
-            "failure",
-            SERVICE_NAME,
-            "reset=86400",
-            "actions=restart/5000/restart/10000/restart/30000",
-        ])
-        .status();
-
-    // 6. Start service
-    println!("Starting service...");
-    let status = Command::new("sc")
-        .args(["start", SERVICE_NAME])
-        .status()
-        .context("Failed to execute sc start")?;
-
-    if !status.success() {
-        println!(
-            "Warning: Service created but failed to start. You may need to start it manually."
-        );
+        anyhow::bail!("Failed to add registry entry for startup");
     }
 
     println!();
     println!("Service installed successfully!");
-    println!("  Binary: {:?}", binary_path);
-    println!("  Service Name: {}", SERVICE_NAME);
+    println!("  Binary: {}", binary_path.display());
+    println!("  Startup: Registry (HKCU\\Run)");
     println!();
-    println!("Manage with:");
-    println!("  sc query {}", SERVICE_NAME);
-    println!("  sc stop {}", SERVICE_NAME);
-    println!("  sc start {}", SERVICE_NAME);
+    println!("The application will start automatically when you log in.");
+    println!("To remove from startup, run: edge-copilot-helper uninstall");
 
     Ok(())
 }
@@ -94,25 +68,26 @@ pub fn uninstall() -> Result<()> {
 
     let install_dir = paths::install_dir();
 
-    // 1. Stop and delete service
-    println!("Stopping service...");
-    let _ = Command::new("sc").args(["stop", SERVICE_NAME]).output();
+    // 1. Remove from startup registry
+    println!("Removing from startup registry...");
+    let status = Command::new("reg")
+        .args(["delete", REG_PATH, "/v", REG_KEY_NAME, "/f"])
+        .status();
 
-    println!("Removing service...");
-    let status = Command::new("sc")
-        .args(["delete", SERVICE_NAME])
-        .status()
-        .context("Failed to execute sc delete")?;
-
-    if !status.success() {
-        println!("Warning: Failed to delete service. It may not exist or you need Administrator privileges.");
+    match status {
+        Ok(s) if s.success() => {
+            println!("Removed from startup registry.");
+        }
+        _ => {
+            println!("Warning: Failed to remove registry entry. It may not exist.");
+        }
     }
 
     // 2. Remove install directory (includes binary and logs)
     if install_dir.exists() {
-        println!("Removing files: {:?}", install_dir);
+        println!("Removing files: {}", install_dir.display());
         fs::remove_dir_all(&install_dir)
-            .with_context(|| format!("Failed to remove {:?}", install_dir))?;
+            .with_context(|| format!("Failed to remove {}", install_dir.display()))?;
     }
 
     println!();

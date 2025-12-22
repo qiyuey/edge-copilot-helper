@@ -2,115 +2,235 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 use std::{fs, path::PathBuf};
 
+fn process_json_file(path: &PathBuf, file_type: &str, modify_fn: impl FnOnce(&mut Value) -> bool) -> Result<bool> {
+    if !path.exists() {
+        return Ok(false);
+    }
+
+    let content = fs::read_to_string(path)
+        .with_context(|| format!("Failed to read {} at {}", file_type, path.display()))?;
+    
+    let mut json: Value = serde_json::from_str(&content)
+        .with_context(|| format!("Failed to parse JSON at {}", path.display()))?;
+
+    let modified = modify_fn(&mut json);
+
+    if modified {
+        let new_content = serde_json::to_string_pretty(&json)?;
+        fs::write(path, new_content)
+            .with_context(|| format!("Failed to write {} at {}", file_type, path.display()))?;
+        println!("✅ Edge Copilot region fix applied to {} at {}", file_type, path.display());
+    }
+
+    Ok(modified)
+}
+
 pub fn apply_fix() -> Result<()> {
-    let prefs_paths = get_prefs_paths()?;
+    let (local_state_paths, prefs_paths) = get_all_paths()?;
 
     let mut found_existing = false;
     let mut any_modified = false;
 
-    for prefs_path in prefs_paths {
-        if !prefs_path.exists() {
-            continue;
-        }
-
+    // 处理 Local State 文件
+    for local_state_path in local_state_paths {
         found_existing = true;
+        if process_json_file(&local_state_path, "Local State", |json| {
+            patch_variations_country(json)
+        })? {
+            any_modified = true;
+        }
+    }
 
-        // 1. Read
-        let content = fs::read_to_string(&prefs_path)
-            .with_context(|| format!("Failed to read preferences at {:?}", prefs_path))?;
-        let mut json: Value = serde_json::from_str(&content)
-            .with_context(|| format!("Failed to parse JSON at {:?}", prefs_path))?;
-
-        // 2. Modify: replace any string value exactly "CN" with "SG"
-        let modified = replace_cn_values(&mut json);
-
-        // 3. Write (only if modified)
-        if modified {
-            let new_content = serde_json::to_string_pretty(&json)?;
-            fs::write(&prefs_path, new_content)
-                .with_context(|| format!("Failed to write preferences at {:?}", prefs_path))?;
-            println!("✅ Edge Copilot region fix applied at {:?}", prefs_path);
+    // 处理 Preferences 文件（所有 Profile）
+    for prefs_path in prefs_paths {
+        found_existing = true;
+        if process_json_file(&prefs_path, "Preferences", |json| {
+            set_chat_ip_eligibility_status(json)
+        })? {
             any_modified = true;
         }
     }
 
     if !found_existing {
-        println!("⚠️ Preferences file not found in known locations.");
+        println!("⚠️ Edge configuration files not found in known locations.");
     } else if !any_modified {
-        println!("ℹ️ No CN values found to update.");
+        println!("ℹ️ No changes needed: variations_country already US and chat_ip_eligibility_status already set.");
     }
 
     Ok(())
 }
 
-fn replace_cn_values(value: &mut Value) -> bool {
-    match value {
-        Value::String(s) if s == "CN" => {
-            *s = "SG".to_string();
-            true
-        }
-        Value::Array(arr) => {
-            let mut changed = false;
-            for v in arr.iter_mut() {
-                changed |= replace_cn_values(v);
+/// 修改 Local State 中的 variations_country 字段为 "US"
+fn patch_variations_country(json: &mut Value) -> bool {
+    if let Some(obj) = json.as_object_mut() {
+        if let Some(variations_country) = obj.get("variations_country") {
+            if variations_country.as_str() == Some("US") {
+                return false;
             }
-            changed
         }
-        Value::Object(map) => {
-            let mut changed = false;
-            for v in map.values_mut() {
-                changed |= replace_cn_values(v);
-            }
-            changed
-        }
-        _ => false,
+        obj.insert("variations_country".to_string(), Value::String("US".to_string()));
+        return true;
     }
+    false
 }
 
-fn get_prefs_paths() -> Result<Vec<PathBuf>> {
+/// 设置 chat_ip_eligibility_status 为 true
+/// 只处理根级别的 browser 对象，不递归遍历
+fn set_chat_ip_eligibility_status(json: &mut Value) -> bool {
+    if let Some(obj) = json.as_object_mut() {
+        // 检查是否有 browser 字段
+        if let Some(browser) = obj.get_mut("browser") {
+            if let Some(browser_obj) = browser.as_object_mut() {
+                // 检查 chat_ip_eligibility_status 字段
+                if let Some(status) = browser_obj.get("chat_ip_eligibility_status") {
+                    // 如果已经是 true，不需要修改
+                    if status.as_bool() != Some(true) {
+                        browser_obj.insert("chat_ip_eligibility_status".to_string(), Value::Bool(true));
+                        return true;
+                    }
+                    return false;
+                } else {
+                    // 字段不存在，添加它
+                    browser_obj.insert("chat_ip_eligibility_status".to_string(), Value::Bool(true));
+                    return true;
+                }
+            }
+        } else {
+            // browser 字段不存在，创建它
+            let mut browser_obj = serde_json::Map::new();
+            browser_obj.insert("chat_ip_eligibility_status".to_string(), Value::Bool(true));
+            obj.insert("browser".to_string(), Value::Object(browser_obj));
+            return true;
+        }
+    }
+    false
+}
+
+/// 获取所有需要修改的文件路径
+/// 返回 (Local State 路径列表, Preferences 路径列表)
+fn get_all_paths() -> Result<(Vec<PathBuf>, Vec<PathBuf>)> {
     let home = dirs::home_dir().context("Could not determine home directory")?;
-    let mut paths = Vec::new();
+    let mut local_state_paths = Vec::new();
+    let mut prefs_paths = Vec::new();
 
     #[cfg(target_os = "macos")]
     {
-        let mac_channels = [
-            "Library/Application Support/Microsoft Edge/Default/Preferences",
-            "Library/Application Support/Microsoft Edge Beta/Default/Preferences",
-            "Library/Application Support/Microsoft Edge Dev/Default/Preferences",
-            "Library/Application Support/Microsoft Edge Canary/Default/Preferences",
+        let mac_user_data_paths = [
+            "Library/Application Support/Microsoft Edge",
+            "Library/Application Support/Microsoft Edge Beta",
+            "Library/Application Support/Microsoft Edge Dev",
+            "Library/Application Support/Microsoft Edge Canary",
         ];
-        for channel in mac_channels {
-            paths.push(home.join(channel));
+        
+        for user_data_path in mac_user_data_paths {
+            let user_data = home.join(user_data_path);
+            if !user_data.exists() {
+                continue;
+            }
+            
+            // Local State 文件
+            let local_state = user_data.join("Local State");
+            if local_state.exists() {
+                local_state_paths.push(local_state);
+            }
+            
+            // 遍历所有 Profile 目录
+            if let Ok(entries) = fs::read_dir(&user_data) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        let dir_name = path.file_name().and_then(|n| n.to_str());
+                        if dir_name == Some("Default") || dir_name.map(|n| n.starts_with("Profile ")).unwrap_or(false) {
+                            let prefs = path.join("Preferences");
+                            if prefs.exists() {
+                                prefs_paths.push(prefs);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
     #[cfg(target_os = "linux")]
     {
-        let linux_channels = [
-            ".config/microsoft-edge/Default/Preferences",
-            ".config/microsoft-edge-beta/Default/Preferences",
-            ".config/microsoft-edge-dev/Default/Preferences",
-            ".config/microsoft-edge-canary/Default/Preferences",
+        let linux_user_data_paths = [
+            ".config/microsoft-edge",
+            ".config/microsoft-edge-beta",
+            ".config/microsoft-edge-dev",
+            ".config/microsoft-edge-canary",
         ];
-        for channel in linux_channels {
-            paths.push(home.join(channel));
+        
+        for user_data_path in linux_user_data_paths {
+            let user_data = home.join(user_data_path);
+            if !user_data.exists() {
+                continue;
+            }
+            
+            // Local State 文件
+            let local_state = user_data.join("Local State");
+            if local_state.exists() {
+                local_state_paths.push(local_state);
+            }
+            
+            // 遍历所有 Profile 目录
+            if let Ok(entries) = fs::read_dir(&user_data) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        let dir_name = path.file_name().and_then(|n| n.to_str());
+                        if dir_name == Some("Default") || dir_name.map(|n| n.starts_with("Profile ")).unwrap_or(false) {
+                            let prefs = path.join("Preferences");
+                            if prefs.exists() {
+                                prefs_paths.push(prefs);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
     #[cfg(target_os = "windows")]
     {
-        let windows_channels = [
-            "AppData/Local/Microsoft/Edge/User Data/Default/Preferences",
-            "AppData/Local/Microsoft/Edge Beta/User Data/Default/Preferences",
-            "AppData/Local/Microsoft/Edge Dev/User Data/Default/Preferences",
-            "AppData/Local/Microsoft/Edge SxS/User Data/Default/Preferences",
+        let windows_user_data_paths = [
+            "AppData/Local/Microsoft/Edge/User Data",
+            "AppData/Local/Microsoft/Edge Beta/User Data",
+            "AppData/Local/Microsoft/Edge Dev/User Data",
+            "AppData/Local/Microsoft/Edge SxS/User Data",
         ];
-        for channel in windows_channels {
-            paths.push(home.join(channel));
+        
+        for user_data_path in windows_user_data_paths {
+            let user_data = home.join(user_data_path);
+            if !user_data.exists() {
+                continue;
+            }
+            
+            // Local State 文件
+            let local_state = user_data.join("Local State");
+            if local_state.exists() {
+                local_state_paths.push(local_state);
+            }
+            
+            // 遍历所有 Profile 目录的 Preferences
+            if let Ok(entries) = fs::read_dir(&user_data) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        let dir_name = path.file_name().and_then(|n| n.to_str());
+                        if dir_name == Some("Default") || dir_name.map(|n| n.starts_with("Profile ")).unwrap_or(false) {
+                            let prefs = path.join("Preferences");
+                            if prefs.exists() {
+                                prefs_paths.push(prefs);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
-    Ok(paths)
+    Ok((local_state_paths, prefs_paths))
 }
 
 #[cfg(test)]
@@ -119,102 +239,87 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn test_replace_cn_simple_string() {
-        let mut value = json!("CN");
-        assert!(replace_cn_values(&mut value));
-        assert_eq!(value, json!("SG"));
-    }
-
-    #[test]
-    fn test_replace_cn_no_change() {
-        let mut value = json!("US");
-        assert!(!replace_cn_values(&mut value));
-        assert_eq!(value, json!("US"));
-    }
-
-    #[test]
-    fn test_replace_cn_in_object() {
+    fn test_patch_variations_country_from_cn() {
         let mut value = json!({
-            "region": "CN",
-            "name": "test",
-            "nested": {
-                "country": "CN",
-                "city": "Beijing"
+            "variations_country": "CN",
+            "other_field": "test"
+        });
+        assert!(patch_variations_country(&mut value));
+        assert_eq!(value["variations_country"], json!("US"));
+        assert_eq!(value["other_field"], json!("test"));
+    }
+
+    #[test]
+    fn test_patch_variations_country_from_other() {
+        let mut value = json!({
+            "variations_country": "SG",
+            "other_field": "test"
+        });
+        assert!(patch_variations_country(&mut value));
+        assert_eq!(value["variations_country"], json!("US"));
+    }
+
+    #[test]
+    fn test_patch_variations_country_already_us() {
+        let mut value = json!({
+            "variations_country": "US",
+            "other_field": "test"
+        });
+        assert!(!patch_variations_country(&mut value));
+        assert_eq!(value["variations_country"], json!("US"));
+    }
+
+    #[test]
+    fn test_patch_variations_country_missing_field() {
+        let mut value = json!({
+            "other_field": "test"
+        });
+        assert!(patch_variations_country(&mut value));
+        assert_eq!(value["variations_country"], json!("US"));
+        assert_eq!(value["other_field"], json!("test"));
+    }
+
+    #[test]
+    fn test_patch_variations_country_not_object() {
+        let mut value = json!("not an object");
+        assert!(!patch_variations_country(&mut value));
+        assert_eq!(value, json!("not an object"));
+    }
+
+    #[test]
+    fn test_set_chat_ip_eligibility_status_missing() {
+        let mut value = json!({
+            "other_field": "test"
+        });
+        assert!(set_chat_ip_eligibility_status(&mut value));
+        assert_eq!(value["browser"]["chat_ip_eligibility_status"], json!(true));
+    }
+
+    #[test]
+    fn test_set_chat_ip_eligibility_status_false() {
+        let mut value = json!({
+            "browser": {
+                "chat_ip_eligibility_status": false
             }
         });
-        assert!(replace_cn_values(&mut value));
-        assert_eq!(
-            value,
-            json!({
-                "region": "SG",
-                "name": "test",
-                "nested": {
-                    "country": "SG",
-                    "city": "Beijing"
-                }
-            })
-        );
+        assert!(set_chat_ip_eligibility_status(&mut value));
+        assert_eq!(value["browser"]["chat_ip_eligibility_status"], json!(true));
     }
 
     #[test]
-    fn test_replace_cn_in_array() {
-        let mut value = json!(["CN", "US", "CN", "JP"]);
-        assert!(replace_cn_values(&mut value));
-        assert_eq!(value, json!(["SG", "US", "SG", "JP"]));
-    }
-
-    #[test]
-    fn test_replace_cn_mixed_structure() {
+    fn test_set_chat_ip_eligibility_status_already_true() {
         let mut value = json!({
-            "regions": ["CN", "US"],
-            "default": "CN",
-            "config": {
-                "locale": "CN",
-                "enabled": true,
-                "count": 42
+            "browser": {
+                "chat_ip_eligibility_status": true
             }
         });
-        assert!(replace_cn_values(&mut value));
-        assert_eq!(
-            value,
-            json!({
-                "regions": ["SG", "US"],
-                "default": "SG",
-                "config": {
-                    "locale": "SG",
-                    "enabled": true,
-                    "count": 42
-                }
-            })
-        );
+        assert!(!set_chat_ip_eligibility_status(&mut value));
+        assert_eq!(value["browser"]["chat_ip_eligibility_status"], json!(true));
     }
 
     #[test]
-    fn test_replace_cn_no_cn_values() {
-        let mut value = json!({
-            "region": "US",
-            "list": ["JP", "KR"],
-            "nested": {"country": "UK"}
-        });
-        assert!(!replace_cn_values(&mut value));
-    }
-
-    #[test]
-    fn test_replace_cn_partial_match_ignored() {
-        let mut value = json!({
-            "code": "CNN",
-            "name": "CN_test",
-            "prefix": "preCN"
-        });
-        assert!(!replace_cn_values(&mut value));
-        // Values should remain unchanged
-        assert_eq!(
-            value,
-            json!({
-                "code": "CNN",
-                "name": "CN_test",
-                "prefix": "preCN"
-            })
-        );
+    fn test_set_chat_ip_eligibility_status_not_object() {
+        let mut value = json!("not an object");
+        assert!(!set_chat_ip_eligibility_status(&mut value));
     }
 }
