@@ -3,6 +3,7 @@ use std::fs;
 use std::process::Command;
 
 use crate::constants::paths;
+use sysinfo::{Pid, System};
 
 const REG_KEY_NAME: &str = "EdgeCopilotHelper";
 const REG_PATH: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
@@ -15,6 +16,10 @@ pub fn install() -> Result<()> {
     let log_dir = paths::log_dir();
     let binary_path = paths::binary_path();
 
+    // 0. Stop existing running instance to avoid copy failures
+    log::info!("Stopping running instances (if any)...");
+    stop_running_instances();
+
     // 1. Create directories
     log::info!("Creating directories...");
     fs::create_dir_all(&install_dir).with_context(|| {
@@ -25,6 +30,12 @@ pub fn install() -> Result<()> {
     })?;
     fs::create_dir_all(&log_dir)
         .with_context(|| format!("Failed to create log directory: {}", log_dir.display()))?;
+
+    // Remove old binary if present (best-effort overwrite)
+    if binary_path.exists() {
+        log::info!("Removing existing binary...");
+        let _ = fs::remove_file(&binary_path);
+    }
 
     // 2. Copy binary
     log::info!("Installing binary...");
@@ -72,6 +83,10 @@ pub fn uninstall() -> Result<()> {
 
     let install_dir = paths::install_dir();
 
+    // Stop running instance
+    log::info!("Stopping running instances (if any)...");
+    stop_running_instances();
+
     // 1. Remove from startup registry
     log::info!("Removing from startup registry...");
     let status = Command::new("reg")
@@ -98,4 +113,19 @@ pub fn uninstall() -> Result<()> {
     log::info!("Uninstallation complete.");
 
     Ok(())
+}
+
+fn stop_running_instances() {
+    let mut sys = System::new();
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+    let current_pid = Pid::from_u32(std::process::id());
+
+    for (pid, process) in sys.processes() {
+        let name = process.name().to_string_lossy();
+        if name.eq_ignore_ascii_case("edge-copilot-helper.exe") && *pid != current_pid {
+            log::info!("Stopping existing instance (pid {}): {}", pid, name);
+            // Try graceful kill first
+            let _ = process.kill();
+        }
+    }
 }
