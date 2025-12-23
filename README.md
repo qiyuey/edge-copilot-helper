@@ -1,52 +1,85 @@
 # Edge Copilot Helper
 
-跨平台工具，用于在 Microsoft Edge 退出时自动修正配置文件，绕过 Copilot 地区限制。
+一个跨平台工具，用于自动修正 Microsoft Edge 配置文件，绕过 Copilot 的地区限制。
 
-## 功能特性
+## ✨ 特性
 
-- **跨平台支持**: macOS (ARM64)、Windows (x64)、Linux (x64)
-- **macOS 原生监听**: 使用 NSWorkspace API 监听应用退出事件，零 CPU 占用
-- **Windows/Linux 轮询**: 使用 sysinfo 低频轮询监控进程状态
-- **系统服务**: 支持安装为系统服务，开机自启
+- 🌍 **跨平台支持**：macOS (ARM64)、Windows (x64)、Linux (x64)
+- 🚀 **高效监控**：
+  - macOS：使用 NSWorkspace API 原生监听应用退出事件，零 CPU 占用
+  - Windows/Linux：使用 sysinfo 进行低频轮询监控进程状态
+- 🔧 **自动修复**：Edge 退出时自动修改配置文件
+- 📦 **多版本支持**：自动检测并修复所有 Edge 版本（Stable、Beta、Dev、Canary）
+- 🔄 **多配置文件支持**：自动处理所有用户配置文件（Default、Profile 1、Profile 2 等）
+- 🛠️ **系统服务**：支持安装为系统服务，实现开机自启
+- 📝 **详细日志**：记录所有操作，便于排查问题
 
-## 安装
+## 📋 工作原理
 
-### 从 Release 下载
+当 Microsoft Edge 退出时，程序会：
 
-前往 [Releases](https://github.com/qiyuey/edge-copilot-helper/releases) 页面下载对应平台的二进制文件。
+1. **检测退出事件**：通过系统 API 或轮询检测 Edge 进程退出
+2. **读取配置文件**：
+   - `Local State`：修改 `variations_country` 为 `"US"`
+   - `Preferences`：设置 `browser.chat_ip_eligibility_status` 为 `true`
+3. **保存修改**：将修改后的配置写回文件
 
-### 从源码编译
+这些修改使得 Edge Copilot 功能可以在受地区限制的区域正常使用。
+
+## 📥 安装
+
+### 方式一：从 Release 下载（推荐）
+
+前往 [Releases](https://github.com/qiyuey/edge-copilot-helper/releases) 页面下载对应平台的预编译二进制文件。
+
+### 方式二：从源码编译
+
+**前置要求**：需要安装 Rust 工具链
 
 ```bash
-# 需要 Rust 工具链
+# 安装 Rust（如果尚未安装）
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# 编译
+# 克隆仓库
+git clone https://github.com/qiyuey/edge-copilot-helper.git
+cd edge-copilot-helper
+
+# 编译 Release 版本
 cargo build --release
 
 # 二进制文件位于
 ./target/release/edge-copilot-helper
 ```
 
-## 使用方法
+## 🚀 使用方法
 
 ### 直接运行
 
 ```bash
-# 前台运行（默认）
+# 前台运行（默认命令）
 ./edge-copilot-helper run
-./edge-copilot-helper        # run 是默认命令
+# 或简写
+./edge-copilot-helper
 ```
 
-### 安装为系统服务
+程序会持续运行，监听 Edge 退出事件并自动修复配置。
+
+### 安装为系统服务（推荐）
+
+安装为系统服务后，程序会在后台自动运行，开机自启。
 
 ```bash
-# 安装服务（macOS: LaunchAgent, Windows: SCM, Linux: systemd）
+# 安装服务
 ./edge-copilot-helper install
 
 # 卸载服务
 ./edge-copilot-helper uninstall
 ```
+
+**各平台服务类型**：
+- **macOS**：LaunchAgent（用户级服务）
+- **Windows**：Windows Service（系统服务）
+- **Linux**：systemd user service（用户级服务）
 
 ### 查看日志
 
@@ -58,52 +91,112 @@ tail -f ~/Library/Logs/top.qiyuey.edge-copilot-helper/service.log
 journalctl --user -u edge-copilot-helper -f
 
 # Windows
-# 查看 %LOCALAPPDATA%\EdgeCopilotHelper\logs\
+# 日志位于：%LOCALAPPDATA%\EdgeCopilotHelper\logs\
 ```
 
-## 工作原理
+## ⚠️ 重要提示
 
-当 Microsoft Edge 退出时，程序会：
+### Windows 用户
 
-1. 检测 Edge 进程退出事件
-2. 读取 Edge 配置文件（Windows: Local State, macOS/Linux: Preferences）
-3. 将所有值为 "CN" 的字符串替换为 "SG"
-4. 保存修改后的配置
-
-这使得 Edge Copilot 功能可以在受地区限制的区域正常使用。
-
-## Windows 注意事项
-
-**重要**: 在 Windows 上，为了确保修复生效，您需要：
+为了确保修复生效，请遵循以下步骤：
 
 1. **关闭 Edge 后台运行**：
    - 打开 Edge 设置 → 系统 → 关闭 "Microsoft Edge 关闭后继续运行后台应用"
    - 或者手动关闭所有 Edge 窗口
 
-2. **手动终止 msedge 进程**（如果修复未生效）：
+2. **手动终止进程**（如果修复未生效）：
    ```powershell
    # 使用任务管理器结束所有 msedge.exe 进程
    # 或使用命令行：
    taskkill /IM msedge.exe /F /T
    ```
 
-如果 Edge 后台进程仍在运行，配置文件可能被锁定，导致修复无法应用。
+**原因**：如果 Edge 后台进程仍在运行，配置文件可能被锁定，导致修复无法应用。
 
-## 项目结构
+### macOS 用户
+
+- 首次运行时，系统可能会提示需要辅助功能权限，请按照提示在系统设置中授予权限
+- 如果使用系统服务，确保 LaunchAgent 已正确加载
+
+### Linux 用户
+
+- 如果使用 systemd 服务，确保用户级 systemd 已启用：
+  ```bash
+  systemctl --user enable --now edge-copilot-helper
+  ```
+
+## 📁 项目结构
 
 ```
 src/
 ├── main.rs          # 入口点，CLI 命令处理
-├── common.rs        # 通用 JSON 处理逻辑
-├── macos.rs         # macOS 事件监听实现
+├── common.rs        # 通用 JSON 处理逻辑（修复配置文件）
+├── constants.rs     # 平台相关常量和路径定义
+├── macos.rs         # macOS 事件监听实现（NSWorkspace API）
 ├── polling.rs       # Windows/Linux 轮询实现
-├── constants.rs     # 平台相关常量和路径
 └── service/         # 服务安装/卸载逻辑
-    ├── macos.rs     # LaunchAgent
-    ├── windows.rs   # Windows SCM
-    └── linux.rs     # systemd
+    ├── mod.rs       # 服务模块入口
+    ├── macos.rs     # LaunchAgent 安装/卸载
+    ├── windows.rs   # Windows Service 安装/卸载
+    └── linux.rs     # systemd 服务安装/卸载
 ```
 
-## License
+## 🔍 技术细节
 
-MIT
+### 修改的配置文件
+
+1. **Local State**（位于 User Data 目录）
+   - 修改 `variations_country` 字段为 `"US"`
+
+2. **Preferences**（位于各 Profile 目录）
+   - 设置 `browser.chat_ip_eligibility_status` 为 `true`
+
+### 支持的 Edge 版本
+
+- Microsoft Edge (Stable)
+- Microsoft Edge Beta
+- Microsoft Edge Dev
+- Microsoft Edge Canary
+
+### 支持的配置文件
+
+- Default Profile
+- Profile 1, Profile 2, ...（所有自定义配置文件）
+
+## 🐛 故障排除
+
+### 修复未生效
+
+1. 确认 Edge 已完全退出（包括后台进程）
+2. 检查日志文件，查看是否有错误信息
+3. 手动运行程序，查看控制台输出
+4. 确认配置文件路径正确且可写
+
+### 服务未启动
+
+1. **macOS**：检查 LaunchAgent 是否加载
+   ```bash
+   launchctl list | grep edge-copilot-helper
+   ```
+
+2. **Linux**：检查 systemd 服务状态
+   ```bash
+   systemctl --user status edge-copilot-helper
+   ```
+
+3. **Windows**：检查服务状态
+   ```powershell
+   Get-Service | Where-Object {$_.Name -like "*edge-copilot-helper*"}
+   ```
+
+## 📄 许可证
+
+MIT License
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 📮 反馈
+
+如有问题或建议，请前往 [GitHub Issues](https://github.com/qiyuey/edge-copilot-helper/issues) 反馈。
