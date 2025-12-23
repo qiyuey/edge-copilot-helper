@@ -5,7 +5,7 @@ use std::process::Command;
 use crate::constants::{APP_LABEL, paths};
 
 pub fn install() -> Result<()> {
-    println!("Installing Edge Copilot Helper...");
+    log::info!("Installing Edge Copilot Helper...");
 
     let current_exe = std::env::current_exe().context("Failed to get current executable path")?;
     let install_dir = paths::install_dir();
@@ -14,7 +14,7 @@ pub fn install() -> Result<()> {
     let binary_path = paths::binary_path();
 
     // 1. Create directories
-    println!("Creating directories...");
+    log::info!("Creating directories...");
     fs::create_dir_all(&install_dir).with_context(|| {
         format!(
             "Failed to create install directory: {}",
@@ -35,7 +35,7 @@ pub fn install() -> Result<()> {
     }
 
     // 2. Copy binary
-    println!("Installing binary...");
+    log::info!("Installing binary...");
     fs::copy(&current_exe, &binary_path)
         .with_context(|| format!("Failed to copy binary to {}", binary_path.display()))?;
 
@@ -49,7 +49,7 @@ pub fn install() -> Result<()> {
     }
 
     // 3. Stop existing service if present
-    println!("Checking for existing service...");
+    log::info!("Checking for existing service...");
     let _ = Command::new("systemctl")
         .args(["--user", "stop", APP_LABEL])
         .output();
@@ -58,13 +58,13 @@ pub fn install() -> Result<()> {
         .output();
 
     // 4. Generate and write unit file
-    println!("Creating systemd unit file...");
+    log::info!("Creating systemd unit file...");
     let unit_content = generate_unit_file(&binary_path);
     fs::write(&unit_path, unit_content)
         .with_context(|| format!("Failed to write unit file to {}", unit_path.display()))?;
 
     // 5. Reload systemd
-    println!("Reloading systemd...");
+    log::info!("Reloading systemd...");
     let status = Command::new("systemctl")
         .args(["--user", "daemon-reload"])
         .status()
@@ -75,7 +75,7 @@ pub fn install() -> Result<()> {
     }
 
     // 6. Enable and start service
-    println!("Enabling service...");
+    log::info!("Enabling service...");
     let status = Command::new("systemctl")
         .args(["--user", "enable", APP_LABEL])
         .status()
@@ -85,7 +85,7 @@ pub fn install() -> Result<()> {
         anyhow::bail!("Failed to enable service");
     }
 
-    println!("Starting service...");
+    log::info!("Starting service...");
     let status = Command::new("systemctl")
         .args(["--user", "start", APP_LABEL])
         .status()
@@ -95,40 +95,40 @@ pub fn install() -> Result<()> {
         anyhow::bail!("Failed to start service");
     }
 
-    println!();
-    println!("Service installed and started successfully!");
-    println!("  Binary: {}", binary_path.display());
-    println!("  Unit:   {}", unit_path.display());
-    println!();
-    println!("Manage with:");
-    println!("  systemctl --user status {APP_LABEL}");
-    println!("  systemctl --user stop {APP_LABEL}");
-    println!("  systemctl --user start {APP_LABEL}");
-    println!("  journalctl --user -u {APP_LABEL} -f");
+    log::info!("");
+    log::info!("Service installed and started successfully!");
+    log::info!("  Binary: {}", binary_path.display());
+    log::info!("  Unit:   {}", unit_path.display());
+    log::info!("");
+    log::info!("Manage with:");
+    log::info!("  systemctl --user status {APP_LABEL}");
+    log::info!("  systemctl --user stop {APP_LABEL}");
+    log::info!("  systemctl --user start {APP_LABEL}");
+    log::info!("  journalctl --user -u {APP_LABEL} -f");
 
     Ok(())
 }
 
 pub fn uninstall() -> Result<()> {
-    println!("Uninstalling Edge Copilot Helper...");
+    log::info!("Uninstalling Edge Copilot Helper...");
 
     let install_dir = paths::install_dir();
     let unit_path = paths::unit_path();
 
     // 1. Stop and disable service
-    println!("Stopping service...");
+    log::info!("Stopping service...");
     let _ = Command::new("systemctl")
         .args(["--user", "stop", APP_LABEL])
         .output();
 
-    println!("Disabling service...");
+    log::info!("Disabling service...");
     let _ = Command::new("systemctl")
         .args(["--user", "disable", APP_LABEL])
         .output();
 
     // 2. Remove unit file
     if unit_path.exists() {
-        println!("Removing unit file: {}", unit_path.display());
+        log::info!("Removing unit file: {}", unit_path.display());
         fs::remove_file(&unit_path)
             .with_context(|| format!("Failed to remove {}", unit_path.display()))?;
     }
@@ -140,13 +140,13 @@ pub fn uninstall() -> Result<()> {
 
     // 4. Remove install directory (includes binary and logs)
     if install_dir.exists() {
-        println!("Removing files: {}", install_dir.display());
+        log::info!("Removing files: {}", install_dir.display());
         fs::remove_dir_all(&install_dir)
             .with_context(|| format!("Failed to remove {}", install_dir.display()))?;
     }
 
-    println!();
-    println!("Uninstallation complete.");
+    log::info!("");
+    log::info!("Uninstallation complete.");
 
     Ok(())
 }
@@ -161,7 +161,7 @@ After=default.target
 
 [Service]
 Type=simple
-ExecStart={binary} run
+ExecStart={binary} daemon
 Restart=always
 RestartSec=5
 

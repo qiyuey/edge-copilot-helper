@@ -53,16 +53,36 @@ cargo build --release
 
 ## 🚀 使用方法
 
+### 命令概览
+
+- `help`：显示帮助信息（默认行为）
+- `version`：显示版本信息（等同于 `--version`）
+- `run`：前台运行，输出到控制台
+- `daemon`：后台运行，不弹出窗口，输出到日志文件
+- `install`：安装程序并配置开机自启（后台运行）
+- `uninstall`：卸载程序并移除自启动配置
+
 ### 直接运行
 
 ```bash
-# 前台运行（默认命令）
-./edge-copilot-helper run
-# 或简写
+# 查看帮助（默认命令）
 ./edge-copilot-helper
+# 或显式执行
+./edge-copilot-helper help
+
+# 显示版本信息
+./edge-copilot-helper version
+
+# 前台运行（控制台输出，命令行会保持占用）
+./edge-copilot-helper run
+
+# 后台运行（日志输出，不弹出窗口）
+./edge-copilot-helper daemon
 ```
 
-程序会持续运行，监听 Edge 退出事件并自动修复配置。
+运行模式说明：
+- `run`：控制台保持前台，持续监听 Edge 状态并自动修复。
+- `daemon`：后台运行，输出到日志文件，不弹出控制台窗口。
 
 ### 安装为系统服务（推荐）
 

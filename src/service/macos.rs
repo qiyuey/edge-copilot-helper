@@ -5,7 +5,7 @@ use std::process::Command;
 use crate::constants::{APP_LABEL, paths};
 
 pub fn install() -> Result<()> {
-    println!("Installing Edge Copilot Helper...");
+    log::info!("Installing Edge Copilot Helper...");
 
     let current_exe = std::env::current_exe().context("Failed to get current executable path")?;
     let install_dir = paths::install_dir();
@@ -14,7 +14,7 @@ pub fn install() -> Result<()> {
     let binary_path = paths::binary_path();
 
     // 1. Create directories
-    println!("Creating directories...");
+    log::info!("Creating directories...");
     fs::create_dir_all(&install_dir).with_context(|| {
         format!(
             "Failed to create install directory: {}",
@@ -35,7 +35,7 @@ pub fn install() -> Result<()> {
     }
 
     // 2. Copy binary
-    println!("Installing binary...");
+    log::info!("Installing binary...");
     fs::copy(&current_exe, &binary_path)
         .with_context(|| format!("Failed to copy binary to {}", binary_path.display()))?;
 
@@ -49,7 +49,7 @@ pub fn install() -> Result<()> {
     }
 
     // 3. Unload existing service if present
-    println!("Checking for existing service...");
+    log::info!("Checking for existing service...");
     let uid = get_uid();
     let _ = Command::new("launchctl")
         .args([
@@ -60,13 +60,13 @@ pub fn install() -> Result<()> {
         .output();
 
     // 4. Generate and write plist
-    println!("Creating Launch Agent plist...");
+    log::info!("Creating Launch Agent plist...");
     let plist_content = generate_plist(&binary_path, &log_dir);
     fs::write(&plist_path, plist_content)
         .with_context(|| format!("Failed to write plist to {}", plist_path.display()))?;
 
     // 5. Load service
-    println!("Loading service...");
+    log::info!("Loading service...");
     let status = Command::new("launchctl")
         .args(["load", "-w", plist_path.to_str().unwrap_or("")])
         .status()
@@ -76,25 +76,25 @@ pub fn install() -> Result<()> {
         anyhow::bail!("Failed to load Launch Agent");
     }
 
-    println!();
-    println!("Service installed and loaded successfully!");
-    println!("  Binary: {}", binary_path.display());
-    println!("  Logs:   {}", log_dir.display());
-    println!();
-    println!("Monitor with: tail -f {}/service.log", log_dir.display());
+    log::info!("");
+    log::info!("Service installed and loaded successfully!");
+    log::info!("  Binary: {}", binary_path.display());
+    log::info!("  Logs:   {}", log_dir.display());
+    log::info!("");
+    log::info!("Monitor with: tail -f {}/service.log", log_dir.display());
 
     Ok(())
 }
 
 pub fn uninstall() -> Result<()> {
-    println!("Uninstalling Edge Copilot Helper...");
+    log::info!("Uninstalling Edge Copilot Helper...");
 
     let install_dir = paths::install_dir();
     let log_dir = paths::log_dir();
     let plist_path = paths::plist_path();
 
     // 1. Unload service
-    println!("Stopping service...");
+    log::info!("Stopping service...");
     let uid = get_uid();
     let _ = Command::new("launchctl")
         .args([
@@ -106,27 +106,27 @@ pub fn uninstall() -> Result<()> {
 
     // 2. Remove plist
     if plist_path.exists() {
-        println!("Removing plist: {}", plist_path.display());
+        log::info!("Removing plist: {}", plist_path.display());
         fs::remove_file(&plist_path)
             .with_context(|| format!("Failed to remove {}", plist_path.display()))?;
     }
 
     // 3. Remove install directory
     if install_dir.exists() {
-        println!("Removing files: {}", install_dir.display());
+        log::info!("Removing files: {}", install_dir.display());
         fs::remove_dir_all(&install_dir)
             .with_context(|| format!("Failed to remove {}", install_dir.display()))?;
     }
 
     // 4. Remove logs
     if log_dir.exists() {
-        println!("Removing logs: {}", log_dir.display());
+        log::info!("Removing logs: {}", log_dir.display());
         fs::remove_dir_all(&log_dir)
             .with_context(|| format!("Failed to remove {}", log_dir.display()))?;
     }
 
-    println!();
-    println!("Uninstallation complete.");
+    log::info!("");
+    log::info!("Uninstallation complete.");
 
     Ok(())
 }
@@ -154,7 +154,7 @@ fn generate_plist(binary_path: &std::path::Path, log_dir: &std::path::Path) -> S
     <key>ProgramArguments</key>
     <array>
         <string>{binary}</string>
-        <string>run</string>
+        <string>daemon</string>
     </array>
     <key>RunAtLoad</key>
     <true/>

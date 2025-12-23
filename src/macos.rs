@@ -15,8 +15,8 @@ mod inner {
     use crate::common::apply_fix;
 
     pub fn run_event_loop() -> Result<()> {
-        println!("🍎 macOS Mode: Starting Event Loop...");
-        println!("   Monitoring for: Microsoft Edge");
+        log::info!("🍎 macOS Mode: Starting Event Loop...");
+        log::info!("   Monitoring for: Microsoft Edge");
 
         unsafe {
             let workspace = NSWorkspace::sharedWorkspace();
@@ -35,9 +35,9 @@ mod inner {
                         if let Some(bundle_id) = app.bundleIdentifier() {
                             let bid = bundle_id.to_string();
                             if bid.contains("com.microsoft.edgemac") {
-                                println!("🛑 Edge termination detected.");
+                                log::info!("🛑 Edge termination detected.");
                                 if let Err(e) = apply_fix() {
-                                    eprintln!("❌ Failed to apply fix: {}", e);
+                                    log::error!("❌ Failed to apply fix: {}", e);
                                 }
                             }
                         }

@@ -23,7 +23,7 @@ fn process_json_file(
         let new_content = serde_json::to_string_pretty(&json)?;
         fs::write(path, new_content)
             .with_context(|| format!("Failed to write {} at {}", file_type, path.display()))?;
-        println!(
+        log::info!(
             "✅ Edge Copilot region fix applied to {} at {}",
             file_type,
             path.display()
@@ -60,9 +60,9 @@ pub fn apply_fix() -> Result<()> {
     }
 
     if !found_existing {
-        println!("⚠️ Edge configuration files not found in known locations.");
+        log::warn!("⚠️ Edge configuration files not found in known locations.");
     } else if !any_modified {
-        println!(
+        log::info!(
             "ℹ️ No changes needed: variations_country already US and chat_ip_eligibility_status already set."
         );
     }

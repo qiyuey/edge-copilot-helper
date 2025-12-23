@@ -22,9 +22,9 @@ const PROCESS_NAMES: &[&str] = &[
 const PROCESS_NAMES: &[&str] = &["msedge"];
 
 pub fn run_polling_loop() -> Result<()> {
-    println!("🐧/🪟 Polling Mode: Starting Loop...");
+    log::info!("🐧/🪟 Polling Mode: Starting Loop...");
     let process_list = PROCESS_NAMES.join(", ");
-    println!("   Monitoring process: {process_list}");
+    log::info!("   Monitoring process: {process_list}");
 
     let mut sys = System::new();
     let mut was_running = false;
@@ -39,9 +39,9 @@ pub fn run_polling_loop() -> Result<()> {
         });
 
         if was_running && !is_running {
-            println!("🛑 Edge exited. Applying fix...");
+            log::info!("🛑 Edge exited. Applying fix...");
             if let Err(e) = apply_fix() {
-                eprintln!("❌ Failed to apply fix: {e}");
+                log::error!("❌ Failed to apply fix: {e}");
             }
         }
 
