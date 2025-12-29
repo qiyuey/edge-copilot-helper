@@ -1,5 +1,8 @@
 # Edge Copilot Helper
 
+[![996.icu](https://img.shields.io/badge/link-996.icu-red.svg)](https://996.icu)
+[![Anti-996 License](https://img.shields.io/badge/License-Anti%20996-blue.svg)](https://github.com/996icu/996.ICU/blob/master/LICENSE)
+
 一个跨平台工具，用于自动修正 Microsoft Edge 配置文件，绕过 Copilot 的地区限制。
 
 ## ✨ 特性
@@ -98,7 +101,7 @@ cargo build --release
 
 **各平台服务类型**：
 - **macOS**：LaunchAgent（用户级服务）
-- **Windows**：Windows Service（系统服务）
+- **Windows**：注册表自启动（HKCU\Run，用户级）
 - **Linux**：systemd user service（用户级服务）
 
 ### 查看日志
@@ -204,14 +207,20 @@ src/
    systemctl --user status edge-copilot-helper
    ```
 
-3. **Windows**：检查服务状态
+3. **Windows**：检查注册表自启动项
    ```powershell
-   Get-Service | Where-Object {$_.Name -like "*edge-copilot-helper*"}
+   reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v EdgeCopilotHelper
    ```
 
 ## 📄 许可证
 
-MIT License
+本项目采用 [Anti-996 License](https://github.com/996icu/996.ICU/blob/master/LICENSE)（反996许可证）。
+
+该许可证旨在防止违反劳动法的公司使用本软件，并强制这些公司权衡其工作方式。
+
+- [英文版许可证](LICENSE)
+- [中文版许可证](LICENSE_CN)
+- [了解更多关于 996.ICU](https://996.icu)
 
 ## 🤝 贡献
 
