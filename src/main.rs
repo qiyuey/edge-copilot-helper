@@ -130,27 +130,19 @@ fn init_file_logger() {
     use crate::constants::paths;
     use simplelog::{Config, LevelFilter, WriteLogger};
     use std::fs::OpenOptions;
-    
+
     let log_dir = paths::log_dir();
     let config = Config::default();
-    
+
     // 只写入文件
     if let Ok(_) = std::fs::create_dir_all(&log_dir) {
         let log_file = log_dir.join(format!(
             "edge-copilot-helper-{}.log",
             chrono::Local::now().format("%Y%m%d")
         ));
-        
-        if let Ok(file) = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&log_file)
-        {
-            let _ = WriteLogger::init(
-                LevelFilter::Info,
-                config,
-                file,
-            );
+
+        if let Ok(file) = OpenOptions::new().create(true).append(true).open(&log_file) {
+            let _ = WriteLogger::init(LevelFilter::Info, config, file);
         }
     }
 }
@@ -158,9 +150,9 @@ fn init_file_logger() {
 #[cfg(not(target_os = "windows"))]
 fn init_console_logger() {
     use simplelog::{ColorChoice, Config, LevelFilter, TermLogger, TerminalMode};
-    
+
     let config = Config::default();
-    
+
     // 只输出到控制台
     let _ = TermLogger::init(
         LevelFilter::Info,
@@ -212,7 +204,7 @@ fn ensure_console() {
     use winapi::um::handleapi::INVALID_HANDLE_VALUE;
     use winapi::um::processenv::SetStdHandle;
     use winapi::um::winbase::{STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE};
-    use winapi::um::wincon::{AttachConsole, ATTACH_PARENT_PROCESS};
+    use winapi::um::wincon::{ATTACH_PARENT_PROCESS, AttachConsole};
     use winapi::um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, GENERIC_READ, GENERIC_WRITE};
 
     unsafe {
