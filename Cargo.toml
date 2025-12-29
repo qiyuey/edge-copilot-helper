@@ -1,9 +1,9 @@
 [package]
 name = "edge-copilot-helper"
-version = "0.1.6"
+version = "0.1.8"
 edition = "2024"
 description = "Cross-platform utility to bypass Microsoft Edge Copilot region restrictions"
-license = "MIT"
+license = "Anti-996"
 repository = "https://github.com/qiyuey/edge-copilot-helper"
 
 [dependencies]
