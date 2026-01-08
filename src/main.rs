@@ -5,9 +5,6 @@ mod service;
 #[cfg(target_os = "windows")]
 mod logger;
 
-#[cfg(not(target_os = "windows"))]
-use log::*;
-
 #[cfg(target_os = "windows")]
 use std::ffi::OsStr;
 
