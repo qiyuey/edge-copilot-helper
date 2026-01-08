@@ -5,7 +5,7 @@ use std::fs::OpenOptions;
 use std::path::Path;
 use std::time::{Duration, SystemTime};
 
-use crate::constants::{paths, LOG_RETENTION_DAYS};
+use crate::constants::{LOG_RETENTION_DAYS, paths};
 
 pub fn init_file_logger() -> Result<(), Box<dyn std::error::Error>> {
     let log_dir = paths::log_dir();
@@ -41,15 +41,12 @@ fn cleanup_old_logs(log_dir: &Path, retention_days: u32) {
             let path = entry.path();
 
             // 只处理 .log 文件
-            if path.extension().map_or(false, |ext| ext == "log") {
-                if let Ok(metadata) = entry.metadata() {
-                    // 使用文件修改时间判断是否过期
-                    if let Ok(modified) = metadata.modified() {
-                        if modified < cutoff {
-                            let _ = std::fs::remove_file(&path);
-                        }
-                    }
-                }
+            if path.extension().is_some_and(|ext| ext == "log")
+                && let Ok(metadata) = entry.metadata()
+                && let Ok(modified) = metadata.modified()
+                && modified < cutoff
+            {
+                let _ = std::fs::remove_file(&path);
             }
         }
     }

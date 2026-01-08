@@ -124,7 +124,7 @@ fn main() -> Result<()> {
 
 #[cfg(not(target_os = "windows"))]
 fn init_file_logger() {
-    use crate::constants::{paths, LOG_RETENTION_DAYS};
+    use crate::constants::{LOG_RETENTION_DAYS, paths};
     use simplelog::{Config, LevelFilter, WriteLogger};
     use std::fs::OpenOptions;
 
@@ -132,7 +132,7 @@ fn init_file_logger() {
     let config = Config::default();
 
     // 只写入文件
-    if let Ok(_) = std::fs::create_dir_all(&log_dir) {
+    if std::fs::create_dir_all(&log_dir).is_ok() {
         // 清理旧日志文件
         cleanup_old_logs(&log_dir, LOG_RETENTION_DAYS);
 
@@ -159,15 +159,12 @@ fn cleanup_old_logs(log_dir: &std::path::Path, retention_days: u32) {
             let path = entry.path();
 
             // 只处理 .log 文件
-            if path.extension().map_or(false, |ext| ext == "log") {
-                if let Ok(metadata) = entry.metadata() {
-                    // 使用文件修改时间判断是否过期
-                    if let Ok(modified) = metadata.modified() {
-                        if modified < cutoff {
-                            let _ = fs::remove_file(&path);
-                        }
-                    }
-                }
+            if path.extension().is_some_and(|ext| ext == "log")
+                && let Ok(metadata) = entry.metadata()
+                && let Ok(modified) = metadata.modified()
+                && modified < cutoff
+            {
+                let _ = fs::remove_file(&path);
             }
         }
     }
@@ -293,6 +290,7 @@ fn acquire_single_instance_lock() -> Result<std::fs::File> {
     let lock_path = install_dir.join("edge-copilot-helper.lock");
     let file = OpenOptions::new()
         .create(true)
+        .truncate(false)
         .read(true)
         .write(true)
         .open(&lock_path)?;
