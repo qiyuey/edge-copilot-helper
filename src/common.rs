@@ -2,6 +2,16 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 use std::{fs, path::PathBuf};
 
+/// 处理单个 JSON 配置文件
+///
+/// # 参数
+/// - `path`: 文件路径
+/// - `file_type`: 文件类型描述（用于日志）
+/// - `modify_fn`: 修改函数，返回 true 表示进行了修改
+///
+/// # 返回
+/// - `Ok(true)`: 文件已修改并保存
+/// - `Ok(false)`: 文件未修改（不存在或无需修改）
 fn process_json_file(
     path: &PathBuf,
     file_type: &str,
@@ -33,6 +43,15 @@ fn process_json_file(
     Ok(modified)
 }
 
+/// 应用 Edge Copilot 区域修复
+///
+/// 此函数是核心入口点，在 Edge 退出时调用。它执行以下操作：
+/// 1. 定位所有 Edge 配置文件（支持多个 Edge 版本：Stable、Beta、Dev、Canary）
+/// 2. 修改 `Local State` 文件中的 `variations_country` 为 "US"
+/// 3. 修改各 Profile 的 `Preferences` 文件，设置 `chat_ip_eligibility_status` 为 true
+///
+/// # 错误
+/// 返回 `Err` 如果无法读取或写入配置文件
 pub fn apply_fix() -> Result<()> {
     let (local_state_paths, prefs_paths) = get_all_paths()?;
 
@@ -124,125 +143,66 @@ fn set_chat_ip_eligibility_status(json: &mut Value) -> bool {
 /// 返回 (Local State 路径列表, Preferences 路径列表)
 fn get_all_paths() -> Result<(Vec<PathBuf>, Vec<PathBuf>)> {
     let home = dirs::home_dir().context("Could not determine home directory")?;
+
+    #[cfg(target_os = "macos")]
+    let user_data_paths: &[&str] = &[
+        "Library/Application Support/Microsoft Edge",
+        "Library/Application Support/Microsoft Edge Beta",
+        "Library/Application Support/Microsoft Edge Dev",
+        "Library/Application Support/Microsoft Edge Canary",
+    ];
+
+    #[cfg(target_os = "linux")]
+    let user_data_paths: &[&str] = &[
+        ".config/microsoft-edge",
+        ".config/microsoft-edge-beta",
+        ".config/microsoft-edge-dev",
+        ".config/microsoft-edge-canary",
+    ];
+
+    #[cfg(target_os = "windows")]
+    let user_data_paths: &[&str] = &[
+        "AppData/Local/Microsoft/Edge/User Data",
+        "AppData/Local/Microsoft/Edge Beta/User Data",
+        "AppData/Local/Microsoft/Edge Dev/User Data",
+        "AppData/Local/Microsoft/Edge SxS/User Data",
+    ];
+
+    collect_edge_paths(&home, user_data_paths)
+}
+
+/// 从指定的用户数据目录收集 Edge 配置文件路径
+fn collect_edge_paths(
+    home: &std::path::Path,
+    user_data_paths: &[&str],
+) -> Result<(Vec<PathBuf>, Vec<PathBuf>)> {
     let mut local_state_paths = Vec::new();
     let mut prefs_paths = Vec::new();
 
-    #[cfg(target_os = "macos")]
-    {
-        let mac_user_data_paths = [
-            "Library/Application Support/Microsoft Edge",
-            "Library/Application Support/Microsoft Edge Beta",
-            "Library/Application Support/Microsoft Edge Dev",
-            "Library/Application Support/Microsoft Edge Canary",
-        ];
-
-        for user_data_path in mac_user_data_paths {
-            let user_data = home.join(user_data_path);
-            if !user_data.exists() {
-                continue;
-            }
-
-            // Local State 文件
-            let local_state = user_data.join("Local State");
-            if local_state.exists() {
-                local_state_paths.push(local_state);
-            }
-
-            // 遍历所有 Profile 目录
-            if let Ok(entries) = fs::read_dir(&user_data) {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path.is_dir() {
-                        let dir_name = path.file_name().and_then(|n| n.to_str());
-                        if dir_name == Some("Default")
-                            || dir_name.map(|n| n.starts_with("Profile ")).unwrap_or(false)
-                        {
-                            let prefs = path.join("Preferences");
-                            if prefs.exists() {
-                                prefs_paths.push(prefs);
-                            }
-                        }
-                    }
-                }
-            }
+    for user_data_path in user_data_paths {
+        let user_data = home.join(user_data_path);
+        if !user_data.exists() {
+            continue;
         }
-    }
 
-    #[cfg(target_os = "linux")]
-    {
-        let linux_user_data_paths = [
-            ".config/microsoft-edge",
-            ".config/microsoft-edge-beta",
-            ".config/microsoft-edge-dev",
-            ".config/microsoft-edge-canary",
-        ];
-
-        for user_data_path in linux_user_data_paths {
-            let user_data = home.join(user_data_path);
-            if !user_data.exists() {
-                continue;
-            }
-
-            // Local State 文件
-            let local_state = user_data.join("Local State");
-            if local_state.exists() {
-                local_state_paths.push(local_state);
-            }
-
-            // 遍历所有 Profile 目录
-            if let Ok(entries) = fs::read_dir(&user_data) {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path.is_dir() {
-                        let dir_name = path.file_name().and_then(|n| n.to_str());
-                        if dir_name == Some("Default")
-                            || dir_name.map(|n| n.starts_with("Profile ")).unwrap_or(false)
-                        {
-                            let prefs = path.join("Preferences");
-                            if prefs.exists() {
-                                prefs_paths.push(prefs);
-                            }
-                        }
-                    }
-                }
-            }
+        // Local State 文件
+        let local_state = user_data.join("Local State");
+        if local_state.exists() {
+            local_state_paths.push(local_state);
         }
-    }
 
-    #[cfg(target_os = "windows")]
-    {
-        let windows_user_data_paths = [
-            "AppData/Local/Microsoft/Edge/User Data",
-            "AppData/Local/Microsoft/Edge Beta/User Data",
-            "AppData/Local/Microsoft/Edge Dev/User Data",
-            "AppData/Local/Microsoft/Edge SxS/User Data",
-        ];
-
-        for user_data_path in windows_user_data_paths {
-            let user_data = home.join(user_data_path);
-            if !user_data.exists() {
-                continue;
-            }
-
-            // Local State 文件
-            let local_state = user_data.join("Local State");
-            if local_state.exists() {
-                local_state_paths.push(local_state);
-            }
-
-            // 遍历所有 Profile 目录的 Preferences
-            if let Ok(entries) = fs::read_dir(&user_data) {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path.is_dir() {
-                        let dir_name = path.file_name().and_then(|n| n.to_str());
-                        if dir_name == Some("Default")
-                            || dir_name.map(|n| n.starts_with("Profile ")).unwrap_or(false)
-                        {
-                            let prefs = path.join("Preferences");
-                            if prefs.exists() {
-                                prefs_paths.push(prefs);
-                            }
+        // 遍历所有 Profile 目录
+        if let Ok(entries) = fs::read_dir(&user_data) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    let dir_name = path.file_name().and_then(|n| n.to_str());
+                    if dir_name == Some("Default")
+                        || dir_name.is_some_and(|n| n.starts_with("Profile "))
+                    {
+                        let prefs = path.join("Preferences");
+                        if prefs.exists() {
+                            prefs_paths.push(prefs);
                         }
                     }
                 }

@@ -5,22 +5,12 @@ use std::{thread, time::Duration};
 use sysinfo::System;
 
 use crate::common::apply_fix;
+use crate::constants::edge::PROCESS_NAMES;
 
-#[cfg(target_os = "windows")]
-const PROCESS_NAMES: &[&str] = &["msedge.exe"];
-
-#[cfg(target_os = "linux")]
-const PROCESS_NAMES: &[&str] = &[
-    "msedge",
-    "microsoft-edge",
-    "microsoft-edge-stable",
-    "microsoft-edge-beta",
-    "microsoft-edge-dev",
-];
-
-#[cfg(all(not(target_os = "windows"), not(target_os = "linux")))]
-const PROCESS_NAMES: &[&str] = &["msedge"];
-
+/// 运行轮询监控循环
+///
+/// 在 Windows 和 Linux 平台上使用，每 2 秒检查一次 Edge 进程状态。
+/// 当检测到 Edge 退出时，自动应用配置修复。
 pub fn run_polling_loop() -> Result<()> {
     log::info!("🐧/🪟 Polling Mode: Starting Loop...");
     let process_list = PROCESS_NAMES.join(", ");

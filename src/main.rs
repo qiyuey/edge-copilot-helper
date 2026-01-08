@@ -122,9 +122,13 @@ fn main() -> Result<()> {
     }
 }
 
+/// 初始化文件日志记录器（非 Windows 平台）
+///
+/// 日志文件按日期命名，保存在平台特定的日志目录中。
+/// 自动清理超过保留天数的旧日志文件。
 #[cfg(not(target_os = "windows"))]
 fn init_file_logger() {
-    use crate::constants::{LOG_RETENTION_DAYS, paths};
+    use crate::constants::{LOG_RETENTION_DAYS, cleanup_old_logs, paths};
     use simplelog::{Config, LevelFilter, WriteLogger};
     use std::fs::OpenOptions;
 
@@ -147,29 +151,9 @@ fn init_file_logger() {
     }
 }
 
-/// 清理超过保留天数的旧日志文件
-fn cleanup_old_logs(log_dir: &std::path::Path, retention_days: u32) {
-    use std::fs;
-    use std::time::{Duration, SystemTime};
-
-    let cutoff = SystemTime::now() - Duration::from_secs(retention_days as u64 * 24 * 60 * 60);
-
-    if let Ok(entries) = fs::read_dir(log_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-
-            // 只处理 .log 文件
-            if path.extension().is_some_and(|ext| ext == "log")
-                && let Ok(metadata) = entry.metadata()
-                && let Ok(modified) = metadata.modified()
-                && modified < cutoff
-            {
-                let _ = fs::remove_file(&path);
-            }
-        }
-    }
-}
-
+/// 初始化控制台日志记录器（非 Windows 平台）
+///
+/// 日志输出到终端，支持颜色高亮。
 #[cfg(not(target_os = "windows"))]
 fn init_console_logger() {
     use simplelog::{ColorChoice, Config, LevelFilter, TermLogger, TerminalMode};
@@ -185,6 +169,7 @@ fn init_console_logger() {
     );
 }
 
+/// 显示帮助信息
 fn show_help() -> Result<()> {
     // 如果是 help 命令或默认行为，需要控制台来显示 help
     #[cfg(target_os = "windows")]
@@ -207,6 +192,7 @@ fn show_help() -> Result<()> {
     Ok(())
 }
 
+/// 显示版本信息
 fn show_version() -> Result<()> {
     #[cfg(target_os = "windows")]
     {
@@ -219,6 +205,10 @@ fn show_version() -> Result<()> {
     Ok(())
 }
 
+/// 确保控制台可用（Windows 专用）
+///
+/// 当程序作为 GUI 应用启动时，需要手动附加或创建控制台
+/// 以便显示命令行输出。
 #[cfg(target_os = "windows")]
 fn ensure_console() {
     use std::os::windows::ffi::OsStrExt;
@@ -272,6 +262,9 @@ fn ensure_console() {
     }
 }
 
+/// 分离控制台（Windows 专用）
+///
+/// 在 daemon 模式下调用，使程序在后台运行而不显示控制台窗口。
 #[cfg(target_os = "windows")]
 fn detach_console() {
     use winapi::um::wincon::FreeConsole;
@@ -280,6 +273,14 @@ fn detach_console() {
     }
 }
 
+/// 获取单实例锁
+///
+/// 使用文件锁机制确保同时只有一个实例在运行。
+/// 锁文件位于安装目录下的 `edge-copilot-helper.lock`。
+///
+/// # 返回
+/// - `Ok(File)`: 成功获取锁，返回锁文件句柄（需保持打开状态）
+/// - `Err`: 另一个实例已在运行
 fn acquire_single_instance_lock() -> Result<std::fs::File> {
     use crate::constants::paths;
     use fs2::FileExt;
@@ -301,6 +302,11 @@ fn acquire_single_instance_lock() -> Result<std::fs::File> {
     Ok(file)
 }
 
+/// 运行主服务循环
+///
+/// 根据平台选择不同的监控策略：
+/// - macOS: 使用 NSWorkspace 事件循环（零 CPU 占用）
+/// - Windows/Linux: 使用 2 秒间隔的轮询机制
 fn run_service() -> Result<()> {
     #[cfg(target_os = "macos")]
     {

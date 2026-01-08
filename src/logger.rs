@@ -2,11 +2,10 @@
 
 use simplelog::{ColorChoice, Config, LevelFilter, TermLogger, TerminalMode, WriteLogger};
 use std::fs::OpenOptions;
-use std::path::Path;
-use std::time::{Duration, SystemTime};
 
-use crate::constants::{LOG_RETENTION_DAYS, paths};
+use crate::constants::{LOG_RETENTION_DAYS, cleanup_old_logs, paths};
 
+/// 初始化文件日志记录器（仅输出到日志文件）
 pub fn init_file_logger() -> Result<(), Box<dyn std::error::Error>> {
     let log_dir = paths::log_dir();
     std::fs::create_dir_all(&log_dir)?;
@@ -32,26 +31,7 @@ pub fn init_file_logger() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// 清理超过保留天数的旧日志文件
-fn cleanup_old_logs(log_dir: &Path, retention_days: u32) {
-    let cutoff = SystemTime::now() - Duration::from_secs(retention_days as u64 * 24 * 60 * 60);
-
-    if let Ok(entries) = std::fs::read_dir(log_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-
-            // 只处理 .log 文件
-            if path.extension().is_some_and(|ext| ext == "log")
-                && let Ok(metadata) = entry.metadata()
-                && let Ok(modified) = metadata.modified()
-                && modified < cutoff
-            {
-                let _ = std::fs::remove_file(&path);
-            }
-        }
-    }
-}
-
+/// 初始化控制台日志记录器（仅输出到终端）
 pub fn init_console_logger() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::default();
 

@@ -13,7 +13,13 @@ mod inner {
     use std::ptr::NonNull;
 
     use crate::common::apply_fix;
+    use crate::constants::edge::BUNDLE_ID_PREFIX;
 
+    /// 运行 macOS 事件循环
+    ///
+    /// 使用 NSWorkspace 通知中心监听应用程序终止事件。
+    /// 当检测到 Edge 退出时，自动应用配置修复。
+    /// 此方法使用原生事件机制，零 CPU 占用。
     pub fn run_event_loop() -> Result<()> {
         log::info!("🍎 macOS Mode: Starting Event Loop...");
         log::info!("   Monitoring for: Microsoft Edge");
@@ -34,7 +40,7 @@ mod inner {
 
                         if let Some(bundle_id) = app.bundleIdentifier() {
                             let bid = bundle_id.to_string();
-                            if bid.contains("com.microsoft.edgemac") {
+                            if bid.contains(BUNDLE_ID_PREFIX) {
                                 log::info!("🛑 Edge termination detected.");
                                 if let Err(e) = apply_fix() {
                                     log::error!("❌ Failed to apply fix: {}", e);
