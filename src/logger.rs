@@ -2,12 +2,17 @@
 
 use simplelog::{ColorChoice, Config, LevelFilter, TermLogger, TerminalMode, WriteLogger};
 use std::fs::OpenOptions;
+use std::path::Path;
+use std::time::{Duration, SystemTime};
 
-use crate::constants::paths;
+use crate::constants::{paths, LOG_RETENTION_DAYS};
 
 pub fn init_file_logger() -> Result<(), Box<dyn std::error::Error>> {
     let log_dir = paths::log_dir();
     std::fs::create_dir_all(&log_dir)?;
+
+    // 清理旧日志文件
+    cleanup_old_logs(&log_dir, LOG_RETENTION_DAYS);
 
     let log_file = log_dir.join(format!(
         "edge-copilot-helper-{}.log",
@@ -25,6 +30,29 @@ pub fn init_file_logger() -> Result<(), Box<dyn std::error::Error>> {
     WriteLogger::init(LevelFilter::Info, config, file)?;
 
     Ok(())
+}
+
+/// 清理超过保留天数的旧日志文件
+fn cleanup_old_logs(log_dir: &Path, retention_days: u32) {
+    let cutoff = SystemTime::now() - Duration::from_secs(retention_days as u64 * 24 * 60 * 60);
+
+    if let Ok(entries) = std::fs::read_dir(log_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+
+            // 只处理 .log 文件
+            if path.extension().map_or(false, |ext| ext == "log") {
+                if let Ok(metadata) = entry.metadata() {
+                    // 使用文件修改时间判断是否过期
+                    if let Ok(modified) = metadata.modified() {
+                        if modified < cutoff {
+                            let _ = std::fs::remove_file(&path);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 pub fn init_console_logger() -> Result<(), Box<dyn std::error::Error>> {

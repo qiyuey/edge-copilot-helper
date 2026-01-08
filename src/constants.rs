@@ -3,6 +3,9 @@ use std::path::PathBuf;
 pub const APP_LABEL: &str = "top.qiyuey.edge-copilot-helper";
 pub const BINARY_NAME: &str = "edge-copilot-helper";
 
+/// 日志文件保留天数
+pub const LOG_RETENTION_DAYS: u32 = 7;
+
 #[cfg(target_os = "macos")]
 pub mod paths {
     use super::*;
