@@ -30,14 +30,17 @@
    - 将 `version = "旧版本号"` 修改为 `version = "新版本号"`
    - 保存文件
 
-6. **提交版本号更新**
-   - 执行：`git add Cargo.toml`
+6. **同步 Cargo.lock**
+   - 执行：`cargo check`（这会自动更新 Cargo.lock 中的版本号）
+
+7. **提交版本号更新**
+   - 执行：`git add Cargo.toml Cargo.lock`
    - 执行：`git commit -m "更新版本号到 x.y.z"`（使用新版本号）
 
-7. **创建 Git 标签**
+8. **创建 Git 标签**
    - 执行：`git tag -a vx.y.z -m "vx.y.z: 发布新版本"`（使用新版本号，例如：v0.1.5）
 
-8. **推送到远程仓库**
+9. **推送到远程仓库**
    - 执行：`git push origin main`
    - 执行：`git push origin vx.y.z`（使用新标签名）
 
@@ -51,11 +54,12 @@
    - `cargo clippy -- -D warnings` ✓
 2. 新版本号：0.1.5
 3. 更新 `Cargo.toml`：`version = "0.1.5"`
-4. `git add Cargo.toml`
-5. `git commit -m "更新版本号到 0.1.5"`
-6. `git tag -a v0.1.5 -m "v0.1.5: 发布新版本"`
-7. `git push origin main`
-8. `git push origin v0.1.5`
+4. `cargo check`（同步 Cargo.lock）
+5. `git add Cargo.toml Cargo.lock`
+6. `git commit -m "更新版本号到 0.1.5"`
+7. `git tag -a v0.1.5 -m "v0.1.5: 发布新版本"`
+8. `git push origin main`
+9. `git push origin v0.1.5`
 
 ## 注意事项
 
