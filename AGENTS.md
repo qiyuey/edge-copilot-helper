@@ -38,9 +38,20 @@ tail -f ~/Library/Logs/top.qiyuey.edge-copilot-helper/service.log
 
 ## Architecture
 
-This is a cross-platform Rust utility that monitors Microsoft Edge and modifies its configuration files when Edge exits to bypass Copilot region restrictions. It applies two fixes:
-1. Sets `variations_country` to `"SG"` in `Local State`
-2. Sets `chat_ip_eligibility_status` to `true` in each profile's `Preferences`
+This is a cross-platform Rust utility that monitors Microsoft Edge and modifies its configuration files when Edge exits to bypass Copilot region restrictions. It applies fixes to two files:
+
+**Seed files (User Data directory):**
+1. Deletes `VariationsSeedV2`, `VariationsSafeSeedV2`, `VariationsRuntimeSeedV2` — these binary files embed the country code and cause Edge to regenerate Copilot disable flags
+
+**Local State:**
+2. Sets `variations_country` to `TARGET_COUNTRY` (currently `"SG"`)
+3. Sets `variations_safe_seed_session_consistency_country` to `TARGET_COUNTRY`
+4. Removes `disablecopilotmodeenp` and other Copilot disable flags from `variations_config_ids`
+5. Clears seed metadata fields (`variations_seed_date`, `variations_seed_etag`, etc.) to prevent stale seed loading
+
+**Each profile's Preferences:**
+6. Sets `chat_ip_eligibility_status` to `true`
+7. Enables the Copilot sidebar app (UUID `cd4688a9-...`) if it was hidden (value 0 → 1)
 
 ### Platform-Specific Monitoring
 
@@ -58,9 +69,10 @@ The project uses `#[cfg(target_os = "...")]` extensively:
 
 `apply_fix()` is the shared entry point called when Edge exits:
 1. Locates Edge configuration files (handles multiple Edge channels: Stable, Beta, Dev, Canary)
-2. Patches `variations_country` to `"SG"` in `Local State`
-3. Sets `chat_ip_eligibility_status` to `true` in each profile's `Preferences`
-4. Writes back only if modifications were actually made
+2. Deletes variations seed files from User Data directory (binary files that embed the CN country code)
+3. Patches `Local State`: `variations_country`, `variations_safe_seed_session_consistency_country`, removes Copilot disable flags from `variations_config_ids`, and clears seed metadata
+4. Patches each profile's `Preferences`: `chat_ip_eligibility_status` and Copilot sidebar visibility
+5. Writes back only if modifications were actually made
 
 ### Platform Constants (`constants.rs`)
 

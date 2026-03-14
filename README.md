@@ -2,12 +2,33 @@
 
 跨平台工具，自动绕过 Microsoft Edge Copilot 的区域限制。监控 Edge 浏览器进程，在 Edge 退出时自动修补配置文件，确保 Copilot 功能不受地理区域限制。
 
+## 前置条件
+
+本工具仅处理 Edge 本地配置文件。要使 Copilot 正常工作，还需要：
+
+- **代理/VPN**：Copilot 依赖 Microsoft 海外服务器，需确保相关流量可达（建议全局模式）
+- **DNS 配置**：建议使用 `8.8.8.8` 或 `1.1.1.1`，避免 DNS 污染
+- **系统区域**：建议将 Windows 区域设置改为目标国家（如美国、新加坡等）
+
 ## 工作原理
 
-Edge 在本地配置文件中存储了区域信息。在某些地区（如中国），Copilot 功能会受到限制。本工具监听 Edge 进程退出事件，并自动修改两项配置：
+Edge 通过多层机制限制特定区域的 Copilot 功能。本工具监听 Edge 进程退出事件，自动修补以下配置：
 
-1. 将 `Local State` 中的 `**variations_country**` 设为 `"SG"`
-2. 将各 Profile 的 `Preferences` 中的 `**chat_ip_eligibility_status**` 设为 `true`
+**种子文件清理（User Data 目录）：**
+
+1. 删除 `VariationsSeedV2`、`VariationsSafeSeedV2`、`VariationsRuntimeSeedV2` — 这些二进制文件内嵌了国家代码，会导致 Edge 不断重新生成 Copilot 禁用标志。删除后 Edge 会通过网络重新获取种子。
+
+**Local State 文件：**
+
+2. 将 **`variations_country`** 设为目标国家代码
+3. 将 **`variations_safe_seed_session_consistency_country`** 设为目标国家代码
+4. 从 **`variations_config_ids`** 中移除 `disablecopilotmodeenp` 等服务端下发的 Copilot 禁用标志
+5. 清除种子元数据（`variations_seed_date`、`variations_seed_etag` 等），确保 Edge 不会尝试加载已删除的种子
+
+**各 Profile 的 Preferences 文件：**
+
+6. 将 **`chat_ip_eligibility_status`** 设为 `true`
+7. 将 Copilot 侧边栏应用从隐藏状态恢复为可见
 
 仅在需要时写入文件——如果值已正确，则不做任何改动。
 
