@@ -47,7 +47,7 @@ fn process_json_file(
 ///
 /// 此函数是核心入口点，在 Edge 退出时调用。它执行以下操作：
 /// 1. 定位所有 Edge 配置文件（支持多个 Edge 版本：Stable、Beta、Dev、Canary）
-/// 2. 修改 `Local State` 文件中的 `variations_country` 为 "US"
+/// 2. 修改 `Local State` 文件中的 `variations_country` 为 "SG"
 /// 3. 修改各 Profile 的 `Preferences` 文件，设置 `chat_ip_eligibility_status` 为 true
 ///
 /// # 错误
@@ -82,24 +82,24 @@ pub fn apply_fix() -> Result<()> {
         log::warn!("⚠️ Edge configuration files not found in known locations.");
     } else if !any_modified {
         log::info!(
-            "ℹ️ No changes needed: variations_country already US and chat_ip_eligibility_status already set."
+            "ℹ️ No changes needed: variations_country already SG and chat_ip_eligibility_status already set."
         );
     }
 
     Ok(())
 }
 
-/// 修改 Local State 中的 variations_country 字段为 "US"
+/// 修改 Local State 中的 variations_country 字段为 "SG"
 fn patch_variations_country(json: &mut Value) -> bool {
     if let Some(obj) = json.as_object_mut() {
         if let Some(variations_country) = obj.get("variations_country")
-            && variations_country.as_str() == Some("US")
+            && variations_country.as_str() == Some("SG")
         {
             return false;
         }
         obj.insert(
             "variations_country".to_string(),
-            Value::String("US".to_string()),
+            Value::String("SG".to_string()),
         );
         return true;
     }
@@ -225,28 +225,28 @@ mod tests {
             "other_field": "test"
         });
         assert!(patch_variations_country(&mut value));
-        assert_eq!(value["variations_country"], json!("US"));
+        assert_eq!(value["variations_country"], json!("SG"));
         assert_eq!(value["other_field"], json!("test"));
     }
 
     #[test]
     fn test_patch_variations_country_from_other() {
         let mut value = json!({
-            "variations_country": "SG",
-            "other_field": "test"
-        });
-        assert!(patch_variations_country(&mut value));
-        assert_eq!(value["variations_country"], json!("US"));
-    }
-
-    #[test]
-    fn test_patch_variations_country_already_us() {
-        let mut value = json!({
             "variations_country": "US",
             "other_field": "test"
         });
+        assert!(patch_variations_country(&mut value));
+        assert_eq!(value["variations_country"], json!("SG"));
+    }
+
+    #[test]
+    fn test_patch_variations_country_already_sg() {
+        let mut value = json!({
+            "variations_country": "SG",
+            "other_field": "test"
+        });
         assert!(!patch_variations_country(&mut value));
-        assert_eq!(value["variations_country"], json!("US"));
+        assert_eq!(value["variations_country"], json!("SG"));
     }
 
     #[test]
@@ -255,7 +255,7 @@ mod tests {
             "other_field": "test"
         });
         assert!(patch_variations_country(&mut value));
-        assert_eq!(value["variations_country"], json!("US"));
+        assert_eq!(value["variations_country"], json!("SG"));
         assert_eq!(value["other_field"], json!("test"));
     }
 
