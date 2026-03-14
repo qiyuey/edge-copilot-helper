@@ -69,10 +69,9 @@ The project uses `#[cfg(target_os = "...")]` extensively:
 
 `apply_fix()` is the shared entry point called when Edge exits:
 1. Locates Edge configuration files (handles multiple Edge channels: Stable, Beta, Dev, Canary)
-2. Deletes variations seed files from User Data directory (binary files that embed the CN country code)
-3. Patches `Local State`: `variations_country`, `variations_safe_seed_session_consistency_country`, removes Copilot disable flags from `variations_config_ids`, and clears seed metadata
-4. Patches each profile's `Preferences`: `chat_ip_eligibility_status` and Copilot sidebar visibility
-5. Writes back only if modifications were actually made
+2. Patches each `Local State`: `variations_country`, `variations_safe_seed_session_consistency_country`, removes Copilot disable flags from `variations_config_ids`, and clears seed metadata. If any modifications were made, also deletes variations seed files (`VariationsSeedV2`, etc.) from the same User Data directory
+3. Patches each profile's `Preferences`: `chat_ip_eligibility_status` and Copilot sidebar visibility
+4. Writes back only if modifications were actually made
 
 ### Platform Constants (`constants.rs`)
 
