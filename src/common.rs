@@ -266,10 +266,7 @@ fn enable_copilot_sidebar(json: &mut Value) -> bool {
             .and_then(|v| v.as_i64())
             == Some(0)
     {
-        sidebar_obj.insert(
-            COPILOT_SIDEBAR_UUID.to_string(),
-            Value::Number(1.into()),
-        );
+        sidebar_obj.insert(COPILOT_SIDEBAR_UUID.to_string(), Value::Number(1.into()));
         return true;
     }
     false
@@ -479,10 +476,7 @@ mod tests {
             "variations_config_ids": "flag1:123,disablecopilotmodeenp:916054,flag2:456"
         });
         assert!(remove_copilot_disable_flags(&mut value));
-        assert_eq!(
-            value["variations_config_ids"],
-            json!("flag1:123,flag2:456")
-        );
+        assert_eq!(value["variations_config_ids"], json!("flag1:123,flag2:456"));
     }
 
     #[test]
