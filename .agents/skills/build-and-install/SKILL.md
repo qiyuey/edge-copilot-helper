@@ -30,6 +30,16 @@ After a successful build, run the install command:
 - If install fails, **stop immediately** and report the full error output to the user.
 - Do **NOT** attempt to fix install errors.
 
+### Step 3: macOS Permission Check
+
+On macOS, the install command automatically runs the installed helper with:
+
+```bash
+request-permissions
+```
+
+This opens Privacy & Security and reveals the installed binary so the user can grant Full Disk Access for Edge application data. If the user reports that permission was granted, restart the LaunchAgent or rerun install before verifying with an Edge quit event.
+
 ## Rules
 
 1. **No auto-fix**: If any step produces an error, present the complete error output and stop. Never modify source code or configuration to resolve errors.

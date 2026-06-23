@@ -40,6 +40,9 @@ enum Command {
     Install,
     /// Uninstall the system service
     Uninstall,
+    /// Request macOS permission to access Edge application data
+    #[cfg(target_os = "macos")]
+    RequestPermissions,
 }
 
 fn main() -> Result<()> {
@@ -118,6 +121,11 @@ fn main() -> Result<()> {
             }
 
             service::uninstall()
+        }
+        #[cfg(target_os = "macos")]
+        Command::RequestPermissions => {
+            init_console_logger();
+            macos::request_app_data_permission()
         }
     }
 }

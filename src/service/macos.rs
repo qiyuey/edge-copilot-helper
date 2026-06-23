@@ -81,7 +81,11 @@ pub fn install() -> Result<()> {
     log::info!("  Binary: {}", binary_path.display());
     log::info!("  Logs:   {}", log_dir.display());
     log::info!("");
-    log::info!("Monitor with: tail -f {}/service.log", log_dir.display());
+    log::info!(
+        "Monitor with: tail -f {}/edge-copilot-helper-$(date +%Y%m%d).log",
+        log_dir.display()
+    );
+    request_permissions(&binary_path);
 
     Ok(())
 }
@@ -172,4 +176,22 @@ fn generate_plist(binary_path: &std::path::Path, log_dir: &std::path::Path) -> S
         stdout = stdout_log.to_str().unwrap_or(""),
         stderr = stderr_log.to_str().unwrap_or("")
     )
+}
+
+fn request_permissions(binary_path: &std::path::Path) {
+    log::info!("");
+    log::info!("Requesting macOS permission for Edge application data...");
+
+    match Command::new(binary_path)
+        .arg("request-permissions")
+        .status()
+    {
+        Ok(status) if status.success() => {}
+        Ok(status) => {
+            log::warn!("Permission request helper exited with status: {status}");
+        }
+        Err(err) => {
+            log::warn!("Failed to run permission request helper: {err}");
+        }
+    }
 }

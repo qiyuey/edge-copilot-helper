@@ -29,11 +29,14 @@ cargo test               # Run tests
 # Run in background (daemon mode, file logging only)
 ./edge-copilot-helper daemon
 
+# macOS: open privacy settings and reveal the installed helper for Full Disk Access
+./edge-copilot-helper request-permissions
+
 # Default command (no args) shows help
 ./edge-copilot-helper
 
-# View service logs (macOS)
-tail -f ~/Library/Logs/top.qiyuey.edge-copilot-helper/service.log
+# View dated service logs (macOS)
+tail -f ~/Library/Logs/top.qiyuey.edge-copilot-helper/edge-copilot-helper-$(date +%Y%m%d).log
 ```
 
 ## Architecture
@@ -58,10 +61,19 @@ This is a cross-platform Rust utility that monitors Microsoft Edge and modifies 
 - **macOS** (`macos.rs`): Uses native NSWorkspace notification center via `objc2` bindings to listen for `NSWorkspaceDidTerminateApplicationNotification`. Zero CPU usage while waiting.
 - **Windows/Linux** (`polling.rs`): Uses `sysinfo` crate for 2-second polling to detect Edge process termination.
 
+### macOS 27 App Data Permission
+
+macOS 27 may block LaunchAgents from reading another app's data under `~/Library/Application Support`. Edge configuration access is gated by `SystemPolicyAppDataDetailed` / Full Disk Access.
+
+- `install` copies the release binary to `~/Library/Application Support/top.qiyuey.edge-copilot-helper/edge-copilot-helper`, loads the LaunchAgent, then runs the installed binary with `request-permissions`.
+- `request-permissions` performs a foreground read preflight against the Edge data directory, opens Privacy & Security, and reveals the installed helper in Finder so the user can grant Full Disk Access without searching for the binary manually.
+- After Full Disk Access is granted, restart the LaunchAgent or rerun `install`; then quit Edge once to verify the daemon logs `Edge Copilot region fix applied`.
+
 ### Conditional Compilation
 
 The project uses `#[cfg(target_os = "...")]` extensively:
 - `main.rs` dispatches to either `macos::run_event_loop()` or `polling::run_polling_loop()`
+- `main.rs` exposes the macOS-only `request-permissions` command for the Full Disk Access flow
 - Platform-specific dependencies are declared conditionally in `Cargo.toml`
 - `common.rs` has platform-specific preference file paths
 

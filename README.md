@@ -69,6 +69,7 @@ cargo build --release
 - 将二进制文件复制到平台对应的安装目录
 - 注册为登录时自动启动
 - 立即启动服务（macOS/Linux）
+- macOS 上会主动执行 `request-permissions`，打开隐私设置并在 Finder 中定位已安装的 helper，方便授予 Full Disk Access
 
 
 | 平台      | 安装目录                                                            | 自启动机制                                                |
@@ -93,6 +94,7 @@ edge-copilot-helper [命令]
 | `daemon`    | 后台运行，日志仅写入文件  |
 | `install`   | 安装为系统服务       |
 | `uninstall` | 卸载服务并删除所有文件   |
+| `request-permissions` | macOS 上主动检查并引导授予 Edge 应用数据访问权限 |
 
 
 ### 前台运行
@@ -111,6 +113,30 @@ edge-copilot-helper daemon
 
 静默在后台运行，日志写入文件。安装为服务后使用的就是此模式。
 
+### macOS 27 权限
+
+macOS 27 会限制后台工具读取其他 App 的数据。Edge 配置位于 `~/Library/Application Support/Microsoft Edge/`，因此 LaunchAgent 需要 Full Disk Access 才能在 Edge 退出后修补 `Local State` 和 `Preferences`。
+
+安装命令会自动运行一次权限引导：
+
+```bash
+./target/release/edge-copilot-helper install
+```
+
+也可以手动触发：
+
+```bash
+~/Library/Application\ Support/top.qiyuey.edge-copilot-helper/edge-copilot-helper request-permissions
+```
+
+该命令会尝试读取 Edge 数据以触发 macOS/TCC 记录，打开 **System Settings → Privacy & Security → Full Disk Access**，并用 Finder 选中需要授权的二进制文件：
+
+```text
+~/Library/Application Support/top.qiyuey.edge-copilot-helper/edge-copilot-helper
+```
+
+授予权限后重启服务，或重新运行 `install`。完整验证方式是退出一次 Edge，然后检查当天日志是否出现 `Edge Copilot region fix applied`。
+
 ## 日志
 
 日志文件按日期存储在平台对应的日志目录中，超过 7 天的旧日志会自动清理。
@@ -127,7 +153,7 @@ edge-copilot-helper daemon
 
 ```bash
 # macOS
-tail -f ~/Library/Logs/top.qiyuey.edge-copilot-helper/service.log
+tail -f ~/Library/Logs/top.qiyuey.edge-copilot-helper/edge-copilot-helper-$(date +%Y%m%d).log
 
 # Linux
 journalctl --user -u top.qiyuey.edge-copilot-helper -f
