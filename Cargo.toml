@@ -2,6 +2,7 @@
 name = "edge-copilot-helper"
 version = "0.1.15"
 edition = "2024"
+rust-version = "1.96"
 description = "Cross-platform utility to bypass Microsoft Edge Copilot region restrictions"
 license = "Anti-996"
 repository = "https://github.com/qiyuey/edge-copilot-helper"
@@ -13,15 +14,11 @@ anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 log = "0"
 fs2 = "0"
+simplelog = "0"
+chrono = "0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-simplelog = "0"
 winapi = { version = "0", features = ["consoleapi", "wincon", "fileapi", "processenv", "winbase"] }
-chrono = "0"
-
-[target.'cfg(not(target_os = "windows"))'.dependencies]
-simplelog = "0"
-chrono = "0"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 sysinfo = "0"

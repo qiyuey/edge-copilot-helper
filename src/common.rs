@@ -1,6 +1,9 @@
 use anyhow::{Context, Result};
 use serde_json::Value;
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 const TARGET_COUNTRY: &str = "SG";
 const COPILOT_SIDEBAR_UUID: &str = "cd4688a9-e888-48ea-ad81-76193d56b1be";
@@ -41,7 +44,7 @@ const SEED_METADATA_FIELDS: &[&str] = &[
 /// - `Ok(true)`: 文件已修改并保存
 /// - `Ok(false)`: 文件未修改（不存在或无需修改）
 fn process_json_file(
-    path: &PathBuf,
+    path: &Path,
     file_type: &str,
     modify_fn: impl FnOnce(&mut Value) -> bool,
 ) -> Result<bool> {
@@ -124,19 +127,7 @@ pub fn apply_fix() -> Result<()> {
 }
 
 fn patch_variations_country(json: &mut Value) -> bool {
-    if let Some(obj) = json.as_object_mut() {
-        if let Some(variations_country) = obj.get("variations_country")
-            && variations_country.as_str() == Some(TARGET_COUNTRY)
-        {
-            return false;
-        }
-        obj.insert(
-            "variations_country".to_string(),
-            Value::String(TARGET_COUNTRY.to_string()),
-        );
-        return true;
-    }
-    false
+    set_string_field(json, "variations_country", TARGET_COUNTRY)
 }
 
 /// 设置 chat_ip_eligibility_status 为 true
@@ -173,15 +164,22 @@ fn set_chat_ip_eligibility_status(json: &mut Value) -> bool {
 }
 
 fn patch_safe_seed_country(json: &mut Value) -> bool {
-    if let Some(obj) = json.as_object_mut() {
-        let key = "variations_safe_seed_session_consistency_country";
-        if obj.get(key).and_then(|v| v.as_str()) == Some(TARGET_COUNTRY) {
-            return false;
-        }
-        obj.insert(key.to_string(), Value::String(TARGET_COUNTRY.to_string()));
-        return true;
+    set_string_field(
+        json,
+        "variations_safe_seed_session_consistency_country",
+        TARGET_COUNTRY,
+    )
+}
+
+fn set_string_field(json: &mut Value, key: &str, value: &str) -> bool {
+    let Some(obj) = json.as_object_mut() else {
+        return false;
+    };
+    if obj.get(key).and_then(Value::as_str) == Some(value) {
+        return false;
     }
-    false
+    obj.insert(key.to_owned(), Value::String(value.to_owned()));
+    true
 }
 
 /// 从 `variations_config_ids` 中移除包含 "disablecopilot" 的服务端下发标志，
@@ -212,7 +210,7 @@ fn remove_copilot_disable_flags(json: &mut Value) -> bool {
 
 /// 删除 User Data 目录中的 variations 种子文件。
 /// 这些文件内嵌了国家代码，会导致 Edge 重新生成 Copilot 禁用标志。
-fn delete_seed_files(user_data_dir: &std::path::Path) -> bool {
+fn delete_seed_files(user_data_dir: &Path) -> bool {
     let mut deleted_any = false;
     for name in SEED_FILES {
         let path = user_data_dir.join(name);
@@ -306,7 +304,7 @@ fn get_all_paths() -> Result<(Vec<PathBuf>, Vec<PathBuf>)> {
 
 /// 从指定的用户数据目录收集 Edge 配置文件路径
 fn collect_edge_paths(
-    home: &std::path::Path,
+    home: &Path,
     user_data_paths: &[&str],
 ) -> Result<(Vec<PathBuf>, Vec<PathBuf>)> {
     let mut local_state_paths = Vec::new();

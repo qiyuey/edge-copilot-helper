@@ -7,36 +7,17 @@ mod windows;
 
 use anyhow::Result;
 
+#[cfg(target_os = "linux")]
+use linux as platform;
+#[cfg(target_os = "macos")]
+use macos as platform;
+#[cfg(target_os = "windows")]
+use windows as platform;
+
 pub fn install() -> Result<()> {
-    #[cfg(target_os = "macos")]
-    {
-        macos::install()
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        windows::install()
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        linux::install()
-    }
+    platform::install()
 }
 
 pub fn uninstall() -> Result<()> {
-    #[cfg(target_os = "macos")]
-    {
-        macos::uninstall()
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        windows::uninstall()
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        linux::uninstall()
-    }
+    platform::uninstall()
 }

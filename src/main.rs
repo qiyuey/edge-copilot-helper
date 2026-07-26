@@ -1,9 +1,7 @@
 mod common;
 mod constants;
-mod service;
-
-#[cfg(target_os = "windows")]
 mod logger;
+mod service;
 
 #[cfg(target_os = "windows")]
 use std::ffi::OsStr;
@@ -67,14 +65,8 @@ fn main() -> Result<()> {
         Command::Run => {
             // run 命令：只输出到控制台
             #[cfg(target_os = "windows")]
-            {
-                ensure_console();
-                logger::init_console_logger().unwrap_or_default();
-            }
-            #[cfg(not(target_os = "windows"))]
-            {
-                init_console_logger();
-            }
+            ensure_console();
+            logger::init_console_logger()?;
 
             let _lock = acquire_single_instance_lock()?;
             run_service()
@@ -82,14 +74,8 @@ fn main() -> Result<()> {
         Command::Daemon => {
             // daemon 命令：只输出到日志文件（无控制台窗口）
             #[cfg(target_os = "windows")]
-            {
-                detach_console();
-                logger::init_file_logger().unwrap_or_default();
-            }
-            #[cfg(not(target_os = "windows"))]
-            {
-                init_file_logger();
-            }
+            detach_console();
+            logger::init_file_logger()?;
 
             let _lock = acquire_single_instance_lock()?;
             run_service()
@@ -97,84 +83,25 @@ fn main() -> Result<()> {
         Command::Install => {
             // install 命令：只输出到控制台
             #[cfg(target_os = "windows")]
-            {
-                ensure_console();
-                logger::init_console_logger().unwrap_or_default();
-            }
-            #[cfg(not(target_os = "windows"))]
-            {
-                init_console_logger();
-            }
+            ensure_console();
+            logger::init_console_logger()?;
 
             service::install()
         }
         Command::Uninstall => {
             // uninstall 命令：只输出到控制台
             #[cfg(target_os = "windows")]
-            {
-                ensure_console();
-                logger::init_console_logger().unwrap_or_default();
-            }
-            #[cfg(not(target_os = "windows"))]
-            {
-                init_console_logger();
-            }
+            ensure_console();
+            logger::init_console_logger()?;
 
             service::uninstall()
         }
         #[cfg(target_os = "macos")]
         Command::RequestPermissions => {
-            init_console_logger();
+            logger::init_console_logger()?;
             macos::request_app_data_permission()
         }
     }
-}
-
-/// 初始化文件日志记录器（非 Windows 平台）
-///
-/// 日志文件按日期命名，保存在平台特定的日志目录中。
-/// 自动清理超过保留天数的旧日志文件。
-#[cfg(not(target_os = "windows"))]
-fn init_file_logger() {
-    use crate::constants::{LOG_RETENTION_DAYS, cleanup_old_logs, paths};
-    use simplelog::{Config, LevelFilter, WriteLogger};
-    use std::fs::OpenOptions;
-
-    let log_dir = paths::log_dir();
-    let config = Config::default();
-
-    // 只写入文件
-    if std::fs::create_dir_all(&log_dir).is_ok() {
-        // 清理旧日志文件
-        cleanup_old_logs(&log_dir, LOG_RETENTION_DAYS);
-
-        let log_file = log_dir.join(format!(
-            "edge-copilot-helper-{}.log",
-            chrono::Local::now().format("%Y%m%d")
-        ));
-
-        if let Ok(file) = OpenOptions::new().create(true).append(true).open(&log_file) {
-            let _ = WriteLogger::init(LevelFilter::Info, config, file);
-        }
-    }
-}
-
-/// 初始化控制台日志记录器（非 Windows 平台）
-///
-/// 日志输出到终端，支持颜色高亮。
-#[cfg(not(target_os = "windows"))]
-fn init_console_logger() {
-    use simplelog::{ColorChoice, Config, LevelFilter, TermLogger, TerminalMode};
-
-    let config = Config::default();
-
-    // 只输出到控制台
-    let _ = TermLogger::init(
-        LevelFilter::Info,
-        config,
-        TerminalMode::Mixed,
-        ColorChoice::Auto,
-    );
 }
 
 /// 显示帮助信息
