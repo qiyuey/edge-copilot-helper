@@ -8,7 +8,7 @@ use objc2_app_kit::{
 use objc2_foundation::{NSNotification, NSRunLoop};
 use std::fs;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 use std::ptr::NonNull;
 
@@ -166,7 +166,7 @@ fn reveal_binary(binary_path: &Path) {
     }
 }
 
-fn print_manual_permission_steps(binary_path: &PathBuf) {
+fn print_manual_permission_steps(binary_path: &Path) {
     log::info!("");
     log::info!("Grant permission manually:");
     log::info!("  1. System Settings → Privacy & Security → Full Disk Access");
